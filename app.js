@@ -131,14 +131,57 @@ function buildPrompt() {
         ? `\n\nRECETTES DÉJÀ SUGGÉRÉES (NE JAMAIS RÉPÉTER): ${state.dishHistory.map(h => h.name).join(', ')}`
         : '';
 
-    return {
-        selectedIngredients: Array.from(state.selectedIngredients),
-        excludedIngredients: Array.from(state.excludedIngredients),
-        cuisine: cuisine || 'variée',
-        timeLimit: timeLimit || '',
-        difficulty: difficulty || '',
-        history: state.dishHistory.map(h => h.name)
-    };
+    const selectedIngs = Array.from(state.selectedIngredients);
+    const excludedIngs = Array.from(state.excludedIngredients);
+
+    const prompt = `Tu es un chef étoilé innovant et créatif. Crée UNE recette complète et détaillée selon ces critères:
+
+INGRÉDIENTS DISPONIBLES: ${selectedIngs.length > 0 ? selectedIngs.join(', ') : 'aucun spécifié - sois créatif'}
+INGRÉDIENTS À ÉVITER ABSOLUMENT: ${excludedIngs.length > 0 ? excludedIngs.join(', ') : 'aucun'}
+${cuisine ? `TYPE DE CUISINE: ${cuisine}` : 'TYPE DE CUISINE: Varie entre différentes cuisines du monde'}
+${timeLimit ? `TEMPS MAXIMUM: ${timeLimit} minutes` : ''}
+${difficulty ? `NIVEAU: ${difficulty}` : ''}${historyText}
+
+RÈGLES STRICTES:
+- La recette DOIT être complètement DIFFÉRENTE de toutes les recettes déjà suggérées
+- Sois TRÈS créatif et original dans les associations d'ingrédients
+- Utilise au moins 50% des ingrédients disponibles si spécifiés
+- JAMAIS utiliser les ingrédients à éviter
+- Varie les techniques de cuisson et les styles culinaires
+- Propose des plats authentiques et réalisables
+
+IMPORTANT: Tu DOIS respecter EXACTEMENT ce format (ne rajoute RIEN avant ou après, pas de texte d'introduction):
+
+NOM: [Nom créatif du plat]
+DESCRIPTION: [Description en 2-3 phrases]
+CUISINE: [Type de cuisine]
+TEMPS: [X minutes]
+PORTIONS: [X personnes]
+DIFFICULTÉ: [Débutant/Intermédiaire/Avancé]
+
+INGRÉDIENTS:
+• [ingrédient 1 avec quantité]
+• [ingrédient 2 avec quantité]
+• [ingrédient 3 avec quantité]
+• [etc... minimum 8 ingrédients]
+
+ÉTAPES:
+1. [Étape détaillée]
+2. [Étape détaillée]
+3. [Étape détaillée]
+[minimum 5 étapes]
+
+NUTRITION (par portion):
+Calories: [X] kcal
+Protéines: [X]g
+Glucides: [X]g
+Lipides: [X]g
+
+CONSEIL: [Conseil de chef]
+
+COMMENCE DIRECTEMENT PAR "NOM:" SANS AUCUN TEXTE AVANT.`;
+
+    return { prompt };
 }
 
 // Génération de la recette
