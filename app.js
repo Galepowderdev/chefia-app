@@ -20,7 +20,6 @@ const elements = {
     recipeCount: document.getElementById('recipeCount')
 };
 
-// --- GESTION DES TAGS ---
 function renderIngredients() {
     elements.selectedContainer.innerHTML = Array.from(state.selectedIngredients).map(i => `
         <span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
@@ -59,24 +58,19 @@ document.querySelectorAll('.quick-add').forEach(btn => {
     };
 });
 
-// --- GÉNÉRATION ---
 async function generateRecipe() {
-    const cuisine = document.getElementById('cuisineType')?.value || 'Maison';
-    const time = document.getElementById('timeLimit')?.value || '45';
-
-    const prompt = `Crée une recette simple.
-    Inclus: ${Array.from(state.selectedIngredients).join(', ') || 'Libre'}.
-    Bannis: ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}.
-    Style: ${cuisine}, Temps: ${time}min.
+    const prompt = `Crée une recette de cuisine.
+    Ingrédients imposés : ${Array.from(state.selectedIngredients).join(', ') || 'Libre'}.
+    Ingrédients interdits : ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}.
     
-    Réponds exactement avec ce plan:
-    NOM: [Le nom]
-    DESCRIPTION: [Le texte]
-    INGRÉDIENTS:
+    Réponds uniquement au format suivant :
+    NOM : [Nom]
+    DESCRIPTION : [Description]
+    INGRÉDIENTS :
     - [Ingrédient]
-    ÉTAPES:
+    ÉTAPES :
     1. [Étape]
-    CONSEIL: [Astuce]`;
+    CONSEIL : [Astuce]`;
 
     showLoading();
 
@@ -89,8 +83,7 @@ async function generateRecipe() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Erreur serveur");
 
-        const recipe = parseRecipe(data.recipe);
-        displayRecipe(recipe);
+        displayRecipe(parseRecipe(data.recipe));
     } catch (err) {
         alert("Erreur : " + err.message);
         showWelcome();
@@ -99,20 +92,18 @@ async function generateRecipe() {
 
 function parseRecipe(text) {
     const clean = text.replace(/\*\*/g, '');
-    const r = { name: 'Ma Recette', description: '', ingredients: [], steps: [], tip: '' };
+    const r = { name: 'Recette ChefIA', description: '', ingredients: [], steps: [], tip: '' };
     const lines = clean.split('\n');
     let section = '';
 
     lines.forEach(line => {
         const l = line.trim();
         if (!l) return;
-        const up = l.toUpperCase();
-
-        if (up.startsWith('NOM:')) r.name = l.split(':')[1].trim();
-        else if (up.startsWith('DESCRIPTION:')) r.description = l.split(':')[1].trim();
-        else if (up.includes('INGRÉDIENTS')) section = 'ing';
-        else if (up.includes('ÉTAPES')) section = 'step';
-        else if (up.startsWith('CONSEIL:')) r.tip = l.split(':')[1].trim();
+        if (l.toUpperCase().startsWith('NOM')) r.name = l.split(':')[1]?.trim() || l;
+        else if (l.toUpperCase().startsWith('DESCRIPTION')) r.description = l.split(':')[1]?.trim() || l;
+        else if (l.toUpperCase().includes('INGRÉDIENTS')) section = 'ing';
+        else if (l.toUpperCase().includes('ÉTAPES')) section = 'step';
+        else if (l.toUpperCase().startsWith('CONSEIL')) r.tip = l.split(':')[1]?.trim() || l;
         else if (section === 'ing' && (l.startsWith('-') || l.startsWith('*'))) r.ingredients.push(l.substring(1).trim());
         else if (section === 'step' && /^\d/.test(l)) r.steps.push(l.replace(/^\d+[\.\)]\s*/, ''));
     });
@@ -124,10 +115,7 @@ function displayRecipe(r) {
     document.getElementById('dishDescription').textContent = r.description;
     document.getElementById('chefTip').textContent = r.tip || 'Bon appétit !';
     document.getElementById('ingredientsList').innerHTML = r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('');
-    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `
-        <div class="mb-4 p-3 bg-white rounded shadow-sm border-l-4 border-purple-500">
-            <strong>${i+1}.</strong> ${s}
-        </div>`).join('');
+    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border mb-2"><b>${i+1}.</b> ${s}</div>`).join('');
     
     state.recipeCount++;
     elements.recipeCount.textContent = state.recipeCount;
