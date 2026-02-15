@@ -1,8 +1,4 @@
-const state = {
-    selectedIngredients: new Set(),
-    excludedIngredients: new Set(),
-    recipeCount: 0
-};
+const state = { selectedIngredients: new Set(), excludedIngredients: new Set(), recipeCount: 0 };
 
 const elements = {
     ingredientInput: document.getElementById('ingredientInput'),
@@ -22,16 +18,13 @@ const elements = {
     chefTip: document.getElementById('chefTip')
 };
 
-// --- FONCTIONS INTERFACE ---
 function renderIngredients() {
     elements.selectedContainer.innerHTML = Array.from(state.selectedIngredients).map(i => `
-        <span class="bg-indigo-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-            ${i} <button onclick="removeTag('${i}', 'sel')">×</button>
-        </span>`).join('');
+        <span class="bg-indigo-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">${i} 
+        <button onclick="window.removeTag('${i}', 'sel')">×</button></span>`).join('');
     elements.excludedContainer.innerHTML = Array.from(state.excludedIngredients).map(i => `
-        <span class="bg-red-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-            ${i} <button onclick="removeTag('${i}', 'ex')">×</button>
-        </span>`).join('');
+        <span class="bg-red-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">${i} 
+        <button onclick="window.removeTag('${i}', 'ex')">×</button></span>`).join('');
 }
 
 window.removeTag = (val, type) => {
@@ -40,95 +33,90 @@ window.removeTag = (val, type) => {
     renderIngredients();
 };
 
-const handleInput = (e, type) => {
-    if (e.key === 'Enter' && e.target.value.trim()) {
-        state[type === 'sel' ? 'selectedIngredients' : 'excludedIngredients'].add(e.target.value.trim().toLowerCase());
-        e.target.value = '';
-        renderIngredients();
-    }
-};
-
-// --- GÉNÉRATION ---
 async function generateRecipe() {
-    const prompt = `Fais une recette simple avec : ${Array.from(state.selectedIngredients).join(', ')}. 
-    Format: NOM: [nom] / INFO: [desc] / LISTE: [- ing] / ETAPES: [1. pas] / CONSEIL: [astuce]`;
+    if (state.selectedIngredients.size === 0) {
+        alert("Ajoute au moins un ingrédient !");
+        return;
+    }
 
-    toggleView('loading');
+    const prompt = `En tant que Chef cuisinier expert, crée une recette précise.
+    Ingrédients : ${Array.from(state.selectedIngredients).join(', ')}.
+    Exclure : ${Array.from(state.excludedIngredients).join(', ')}.
+    
+    Réponds EXCLUSIVEMENT sous ce format JSON :
+    {
+      "nom": "Nom précis de la recette",
+      "description": "Description alléchante",
+      "ingredients": ["Quantité + Ingrédient 1", "Quantité + Ingrédient 2"],
+      "etapes": ["Etape 1 détaillée", "Etape 2 détaillée"],
+      "nutrition": { "cal": "Nombre kcal", "prot": "Nombre g", "glu": "Nombre g" },
+      "conseil": "Astuce de pro"
+    }`;
+
+    elements.welcome.classList.add('hidden');
+    elements.result.classList.add('hidden');
+    elements.loading.classList.remove('hidden');
 
     try {
         const res = await fetch('/.netlify/functions/generate-recipe', {
             method: 'POST',
             body: JSON.stringify({ prompt })
         });
+        
         const data = await res.json();
+        const r = JSON.parse(data.recipe);
 
-        let recipeData;
-        if (data.safetyBlock) {
-            // MODE SECOURS : Si l'IA bloque, on crée une recette par défaut
-            recipeData = {
-                name: "Pâtes Express du Chef",
-                description: "Une recette savoureuse prête en quelques minutes.",
-                ingredients: ["200g de pâtes", "Huile d'olive", "Sel et poivre"],
-                steps: ["Cuire les pâtes dans l'eau bouillante", "Égoutter", "Assaisonner"],
-                tip: "Ajoutez un peu de fromage pour plus de gourmandise !"
-            };
-        } else {
-            recipeData = parseTextRecipe(data.recipe);
-        }
+        // Remplissage des champs
+        elements.dishName.textContent = r.nom;
+        
+        // Affichage Description + Valeurs Nutritionnelles
+        elements.dishDescription.innerHTML = `
+            <p class="mb-4">${r.description}</p>
+            <div class="flex flex-wrap gap-3 bg-indigo-50 p-4 rounded-2xl justify-center text-indigo-800 font-bold border border-indigo-100">
+                <div class="flex flex-col"> <span class="text-xs text-indigo-400 uppercase">Énergie</span> <span>🔥 ${r.nutrition.cal}</span> </div>
+                <div class="w-[1px] bg-indigo-200"></div>
+                <div class="flex flex-col"> <span class="text-xs text-indigo-400 uppercase">Protéines</span> <span>💪 ${r.nutrition.prot}</span> </div>
+                <div class="w-[1px] bg-indigo-200"></div>
+                <div class="flex flex-col"> <span class="text-xs text-indigo-400 uppercase">Glucides</span> <span>🍞 ${r.nutrition.glu}</span> </div>
+            </div>`;
 
-        displayRecipe(recipeData);
+        elements.ingredientsList.innerHTML = r.ingredients.map(i => `<li class="p-3 border-b border-indigo-50 flex items-center gap-2"><span class="text-indigo-500">◈</span> ${i}</li>`).join('');
+        elements.stepsList.innerHTML = r.etapes.map((s, i) => `<div class="p-4 bg-white rounded-xl shadow-sm border border-gray-100 mb-3 flex gap-3">
+            <span class="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs">${i+1}</span>
+            <p class="text-gray-700">${s}</p></div>`).join('');
+        elements.chefTip.innerHTML = `<strong>💡 Conseil du Chef :</strong> ${r.conseil}`;
+
+        state.recipeCount++;
+        elements.recipeCount.textContent = state.recipeCount;
+
+        elements.loading.classList.add('hidden');
+        elements.result.classList.remove('hidden');
+        elements.result.scrollIntoView({ behavior: 'smooth' });
+
     } catch (err) {
-        alert("Erreur réseau");
-        toggleView('welcome');
+        console.error(err);
+        alert("L'IA a eu un petit vertige. Réessaie !");
+        elements.loading.classList.add('hidden');
+        elements.welcome.classList.remove('hidden');
     }
 }
 
-function parseTextRecipe(text) {
-    const r = { name: "Recette", description: "", ingredients: [], steps: [], tip: "" };
-    const lines = text.replace(/\*\*/g, '').split('\n');
-    let section = '';
-    
-    lines.forEach(l => {
-        const line = l.trim();
-        if (line.toUpperCase().startsWith('NOM')) r.name = line.split(':')[1]?.trim();
-        else if (line.toUpperCase().startsWith('INFO')) r.description = line.split(':')[1]?.trim();
-        else if (line.toUpperCase().includes('LISTE')) section = 'ing';
-        else if (line.toUpperCase().includes('ETAPES')) section = 'step';
-        else if (line.toUpperCase().startsWith('CONSEIL')) r.tip = line.split(':')[1]?.trim();
-        else if (section === 'ing' && line.startsWith('-')) r.ingredients.push(line.substring(1).trim());
-        else if (section === 'step' && /^\d/.test(line)) r.steps.push(line.replace(/^\d+[\.\)]\s*/, ''));
-    });
-    return r;
-}
-
-function displayRecipe(r) {
-    elements.dishName.textContent = r.name;
-    elements.dishDescription.textContent = r.description;
-    elements.chefTip.textContent = r.tip;
-    elements.ingredientsList.innerHTML = r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('');
-    elements.stepsList.innerHTML = r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border-l-4 border-indigo-500 mb-2"><b>${i+1}.</b> ${s}</div>`).join('');
-    
-    state.recipeCount++;
-    elements.recipeCount.textContent = state.recipeCount;
-    toggleView('result');
-}
-
-function toggleView(view) {
-    elements.welcome.classList.toggle('hidden', view !== 'welcome');
-    elements.loading.classList.toggle('hidden', view !== 'loading');
-    elements.result.classList.toggle('hidden', view !== 'result');
-    if(view === 'result') elements.result.scrollIntoView({ behavior: 'smooth' });
-}
-
-// --- INITIALISATION ---
-elements.ingredientInput.onkeypress = (e) => handleInput(e, 'sel');
-elements.excludeInput.onkeypress = (e) => handleInput(e, 'ex');
+// Boutons
 elements.generateBtn.onclick = generateRecipe;
 elements.newDishBtn.onclick = generateRecipe;
 
+elements.ingredientInput.onkeypress = (e) => {
+    if (e.key === 'Enter' && e.target.value.trim()) {
+        state.selectedIngredients.add(e.target.value.trim().toLowerCase());
+        e.target.value = '';
+        renderIngredients();
+    }
+};
+
 document.querySelectorAll('.quick-add').forEach(btn => {
     btn.onclick = () => {
-        state.selectedIngredients.add(btn.textContent.trim().split(' ').pop().toLowerCase());
+        const text = btn.innerText.split(' ').pop().toLowerCase();
+        state.selectedIngredients.add(text);
         renderIngredients();
     };
 });
