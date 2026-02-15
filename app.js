@@ -126,64 +126,58 @@ function buildPrompt() {
     const cuisine = document.getElementById('cuisineType').value;
     const timeLimit = document.getElementById('timeLimit').value;
     const difficulty = document.getElementById('difficulty').value;
-    
-    const historyText = state.dishHistory.length > 0 
+
+    const historyText = state.dishHistory.length > 0
         ? `\n\nRECETTES DÉJÀ SUGGÉRÉES (NE JAMAIS RÉPÉTER): ${state.dishHistory.map(h => h.name).join(', ')}`
         : '';
 
     const selectedIngs = Array.from(state.selectedIngredients);
     const excludedIngs = Array.from(state.excludedIngredients);
 
-    return `Tu es un chef étoilé innovant et créatif. Crée UNE recette complète et détaillée selon ces critères:
+    return `
+Tu es un chef IA expert. Crée une RECETTE COMPLÈTE et détaillée, même si certains ingrédients sont manquants. Assure-toi que la recette est toujours générée.
 
-INGRÉDIENTS DISPONIBLES: ${selectedIngs.length > 0 ? selectedIngs.join(', ') : 'aucun spécifié - sois créatif'}
-INGRÉDIENTS À ÉVITER ABSOLUMENT: ${excludedIngs.length > 0 ? excludedIngs.join(', ') : 'aucun'}
-${cuisine ? `TYPE DE CUISINE: ${cuisine}` : 'TYPE DE CUISINE: Varie entre différentes cuisines du monde'}
-${timeLimit ? `TEMPS MAXIMUM: ${timeLimit} minutes` : ''}
-${difficulty ? `NIVEAU: ${difficulty}` : ''}${historyText}
+UTILISE STRICTEMENT CES BALISES POUR CHAQUE SECTION (aucun texte en dehors):
+<NOM> ... </NOM>
+<DESCRIPTION> ... </DESCRIPTION>
+<CUISINE> ... </CUISINE>
+<TEMPS> ... </TEMPS>
+<PORTIONS> ... </PORTIONS>
+<DIFFICULTÉ> ... </DIFFICULTÉ>
+<INGRÉDIENTS>
+• ...
+• ...
+</INGRÉDIENTS>
+<ÉTAPES>
+1. ...
+2. ...
+</ÉTAPES>
+<NUTRITION>
+Calories: ...
+Protéines: ...
+Glucides: ...
+Lipides: ...
+</NUTRITION>
+<CONSEIL> ... </CONSEIL>
 
-RÈGLES:
-- Recette DIFFÉRENTE des recettes déjà suggérées
-- Créatif avec les ingrédients
-- Utilise les ingrédients disponibles
-- N'utilise JAMAIS les ingrédients à éviter
+CRITÈRES:
+- Ingrédients disponibles: ${selectedIngs.length > 0 ? selectedIngs.join(', ') : 'aucun spécifié'}
+- Ingrédients à éviter: ${excludedIngs.length > 0 ? excludedIngs.join(', ') : 'aucun'}
+- Type de cuisine: ${cuisine || 'Varie'}
+- Temps maximum: ${timeLimit || 'Peu importe'}
+- Difficulté: ${difficulty || 'Tous niveaux'}
+${historyText}
 
-FORMATE TA RÉPONSE EXACTEMENT COMME CET EXEMPLE (remplace juste les valeurs entre crochets):
+Fais en sorte que:
+1. La recette soit toujours complète et réaliste.
+2. Les sections <NUTRITION> contiennent toujours Calories, Protéines et Glucides.
+3. Ne répète jamais une recette déjà générée.
+4. Utilise les ingrédients disponibles et n'utilise jamais ceux à éviter.
 
-NOM: Poulet Croustillant aux Herbes Provençales
-DESCRIPTION: Un poulet juteux mariné dans des herbes fraîches, rôti à la perfection avec une peau dorée et croustillante. Servi avec des légumes de saison grillés et une sauce au citron.
-CUISINE: Française
-TEMPS: 45 minutes
-PORTIONS: 4 personnes
-DIFFICULTÉ: Intermédiaire
-
-INGRÉDIENTS:
-• 4 cuisses de poulet (environ 800g)
-• 3 cuillères à soupe d'huile d'olive
-• 2 gousses d'ail hachées
-• 1 cuillère à soupe de thym frais
-• 1 cuillère à soupe de romarin frais
-• Le jus d'un citron
-• Sel et poivre au goût
-• 500g de légumes de saison
-
-ÉTAPES:
-1. Préchauffez le four à 200°C. Mélangez l'huile d'olive, l'ail, les herbes, le jus de citron, le sel et le poivre dans un bol.
-2. Massez les cuisses de poulet avec la marinade et laissez reposer 15 minutes à température ambiante.
-3. Placez le poulet sur une plaque de cuisson et enfournez pendant 35-40 minutes jusqu'à ce que la peau soit dorée et croustillante.
-4. Pendant ce temps, coupez les légumes en morceaux et faites-les griller à la poêle avec un peu d'huile.
-5. Laissez reposer le poulet 5 minutes avant de servir avec les légumes grillés et un filet de citron.
-
-NUTRITION (par portion):
-Calories: 420 kcal
-Protéines: 35g
-Glucides: 12g
-Lipides: 28g
-
-CONSEIL: Pour une peau encore plus croustillante, séchez bien le poulet avec du papier absorbant avant de le mariner et augmentez la température du four à 220°C les 5 dernières minutes.
-
-MAINTENANT GÉNÈRE TA PROPRE RECETTE EN SUIVANT EXACTEMENT CE FORMAT. COMMENCE PAR "NOM:" SANS AUCUN TEXTE AVANT.`;
+Commence ta réponse directement par <NOM> sans texte avant.
+`;
 }
+
 
 // Génération de la recette
 async function generateRecipe() {
