@@ -189,36 +189,42 @@ MAINTENANT GÉNÈRE TA PROPRE RECETTE EN SUIVANT EXACTEMENT CE FORMAT. COMMENCE 
 
 // Génération de la recette
 async function generateRecipe() {
+    const prompt = createPrompt(); // Votre fonction qui crée le texte du prompt
     showLoading();
-    
-    // Dans app.js, à l'intérieur de generateRecipe
-try {
-    const response = await fetch('/.netlify/functions/generate-recipe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt })
-    });
 
-    const result = await response.json();
-    console.log("Résultat reçu:", result);
+    try {
+        const response = await fetch('/.netlify/functions/generate-recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: prompt })
+        });
 
-    // Extraction du texte selon la structure de Gemini
-    let recipeText = "";
-    if (result.candidates && result.candidates[0].content) {
-        recipeText = result.candidates[0].content.parts[0].text;
-    } else {
-        throw new Error("Format de réponse inconnu");
+        const result = await response.json();
+        console.log("Réponse reçue de l'API:", result);
+
+        // Vérification si l'API a renvoyé une erreur
+        if (result.error) {
+            throw new Error(result.error.message || "Erreur API Google");
+        }
+
+        // Extraction du texte avec sécurité totale
+        let recipeText = "";
+        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+            recipeText = result.candidates[0].content.parts[0].text;
+        } else {
+            console.error("Structure reçue bizarre:", result);
+            throw new Error("L'IA n'a pas pu générer de texte. Vérifiez votre clé API.");
+        }
+
+        const recipe = parseRecipe(recipeText);
+        displayRecipe(recipe);
+        showResult();
+
+    } catch (error) {
+        console.error("Détails de l'erreur:", error);
+        alert("Désolé, une erreur est survenue : " + error.message);
+        showWelcome();
     }
-
-    const recipe = parseRecipe(recipeText);
-    displayRecipe(recipe);
-    showResult();
-
-} catch (error) {
-    console.error("Erreur complète:", error);
-    alert("Erreur: " + error.message);
-    showWelcome();
-}
 }
 
 function parseRecipe(text) {
