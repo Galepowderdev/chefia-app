@@ -1,6 +1,9 @@
 const https = require('https');
 
 exports.handler = async (event, context) => {
+  // LOG DE TEST - Doit apparaître dans Netlify
+  console.log("--- FONCTION DÉMARRÉE ---");
+
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -12,53 +15,50 @@ exports.handler = async (event, context) => {
 
   try {
     const data = JSON.parse(event.body);
-    const { prompt } = data;
     const apiKey = process.env.GEMINI_API_KEY;
     
-    if (!apiKey) throw new Error('Clé API manquante dans Netlify');
+    if (!apiKey) {
+      console.error("ERREUR: Clé API manquante");
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Clé API non configurée" }) };
+    }
 
     const requestBody = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2500 }
+      contents: [{ parts: [{ text: data.prompt }] }]
     });
 
-    // On utilise "gemini-pro" qui est le nom le plus stable et compatible v1
-    const response = await new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
+      // Utilisation du modèle gemini-1.5-flash (le plus compatible actuellement)
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1/models/gemini-pro:generateContent?key=${apiKey}`,
+        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       };
 
       const req = https.request(options, (res) => {
-        let str = '';
-        res.on('data', (chunk) => str += chunk);
-        res.on('end', () => resolve({ statusCode: res.statusCode, data: str }));
+        let responseData = '';
+        res.on('data', (chunk) => responseData += chunk);
+        res.on('end', () => {
+          console.log("Réponse API reçue, status:", res.statusCode);
+          resolve({
+            statusCode: res.statusCode,
+            headers,
+            body: responseData
+          });
+        });
       });
-      req.on('error', reject);
+
+      req.on('error', (e) => {
+        console.error("Erreur Requête:", e.message);
+        resolve({ statusCode: 500, headers, body: JSON.stringify({ error: e.message }) });
+      });
+
       req.write(requestBody);
       req.end();
     });
 
-    const parsedData = JSON.parse(response.data);
-
-    if (response.statusCode !== 200) {
-      throw new Error(parsedData.error?.message || 'Erreur API Google');
-    }
-
-    const recipeText = parsedData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ recipe: recipeText })
-    };
   } catch (error) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Erreur', details: error.message })
-    };
+    console.error("Erreur Try/Catch:", error.message);
+    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
   }
 };
