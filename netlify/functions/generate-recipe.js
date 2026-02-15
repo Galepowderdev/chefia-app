@@ -51,26 +51,26 @@ RÈGLES STRICTES:
 - Varie les techniques de cuisson et les styles culinaires
 - Propose des plats authentiques et réalisables
 
-FORMAT DE RÉPONSE OBLIGATOIRE (respecte exactement cette structure):
+IMPORTANT: Tu DOIS respecter EXACTEMENT ce format (ne rajoute RIEN avant ou après, pas de texte d'introduction):
 
-NOM: [Nom du plat créatif et appétissant]
-DESCRIPTION: [2-3 phrases décrivant le plat et ses saveurs]
+NOM: [Nom créatif du plat]
+DESCRIPTION: [Description en 2-3 phrases]
 CUISINE: [Type de cuisine]
 TEMPS: [X minutes]
-PORTIONS: [Y personnes]
+PORTIONS: [X personnes]
 DIFFICULTÉ: [Débutant/Intermédiaire/Avancé]
 
 INGRÉDIENTS:
-• [ingrédient 1 avec quantité précise]
-• [ingrédient 2 avec quantité précise]
-• [ingrédient 3 avec quantité précise]
-[minimum 8 ingrédients avec quantités exactes]
+• [ingrédient 1 avec quantité]
+• [ingrédient 2 avec quantité]
+• [ingrédient 3 avec quantité]
+• [etc... minimum 8 ingrédients]
 
 ÉTAPES:
-1. [Étape détaillée avec temps si nécessaire]
-2. [Étape détaillée avec temps si nécessaire]
-3. [Étape détaillée avec temps si nécessaire]
-[minimum 5 étapes détaillées]
+1. [Étape détaillée]
+2. [Étape détaillée]
+3. [Étape détaillée]
+[minimum 5 étapes]
 
 NUTRITION (par portion):
 Calories: [X] kcal
@@ -78,7 +78,9 @@ Protéines: [X]g
 Glucides: [X]g
 Lipides: [X]g
 
-CONSEIL: [Un conseil de chef professionnel pour réussir ce plat]`;
+CONSEIL: [Conseil de chef]
+
+COMMENCE DIRECTEMENT PAR "NOM:" SANS AUCUN TEXTE AVANT.`;
 
     // Appel à l'API Google Gemini (GRATUIT!)
     const apiKey = process.env.GEMINI_API_KEY;
