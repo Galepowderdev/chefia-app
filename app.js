@@ -15,18 +15,18 @@ const elements = {
     loading: document.getElementById('loading'),
     welcome: document.getElementById('welcome'),
     result: document.getElementById('result'),
+    recipeCount: document.getElementById('recipeCount'),
     historySection: document.getElementById('historySection'),
-    historyList: document.getElementById('historyList'),
-    recipeCount: document.getElementById('recipeCount')
+    historyList: document.getElementById('historyList')
 };
 
 function renderIngredients() {
     elements.selectedContainer.innerHTML = Array.from(state.selectedIngredients).map(i => `
-        <span class="bg-green-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
+        <span class="bg-emerald-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
             ${i} <button onclick="removeTag('${i}', 'sel')">×</button>
         </span>`).join('');
     elements.excludedContainer.innerHTML = Array.from(state.excludedIngredients).map(i => `
-        <span class="bg-red-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
+        <span class="bg-rose-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
             ${i} <button onclick="removeTag('${i}', 'ex')">×</button>
         </span>`).join('');
 }
@@ -37,18 +37,16 @@ window.removeTag = (val, type) => {
     renderIngredients();
 };
 
-const handleAdd = (e, type) => {
+const handleInput = (e, type) => {
     if (e.key === 'Enter' && e.target.value.trim()) {
-        const val = e.target.value.trim().toLowerCase();
-        if (type === 'sel') state.selectedIngredients.add(val);
-        else state.excludedIngredients.add(val);
+        state[type === 'sel' ? 'selectedIngredients' : 'excludedIngredients'].add(e.target.value.trim().toLowerCase());
         e.target.value = '';
         renderIngredients();
     }
 };
 
-if(elements.ingredientInput) elements.ingredientInput.onkeypress = (e) => handleAdd(e, 'sel');
-if(elements.excludeInput) elements.excludeInput.onkeypress = (e) => handleAdd(e, 'ex');
+if(elements.ingredientInput) elements.ingredientInput.onkeypress = (e) => handleInput(e, 'sel');
+if(elements.excludeInput) elements.excludeInput.onkeypress = (e) => handleInput(e, 'ex');
 
 document.querySelectorAll('.quick-add').forEach(btn => {
     btn.onclick = () => {
@@ -59,19 +57,18 @@ document.querySelectorAll('.quick-add').forEach(btn => {
 });
 
 async function generateRecipe() {
-    // PROMPT ADOUCI POUR ÉVITER LES FILTRES DE SÉCURITÉ
-    const prompt = `Bonjour ! Peux-tu m'aider à cuisiner un plat savoureux ? 
-    J'ai ces ingrédients : ${Array.from(state.selectedIngredients).join(', ') || 'ce que tu veux'}.
-    S'il te plaît, n'utilise pas : ${Array.from(state.excludedIngredients).join(', ') || 'rien de spécial'}.
+    const prompt = `Donne-moi une recette de cuisine.
+    Ingrédients disponibles : ${Array.from(state.selectedIngredients).join(', ') || 'Libre'}.
+    Ingrédients à éviter : ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}.
     
-    Réponds de cette façon précise :
-    NOM : [Nom du plat]
-    DESCRIPTION : [Description courte]
-    INGRÉDIENTS :
-    - [Liste]
-    ÉTAPES :
+    Réponds exactement avec ce plan :
+    NOM DU PLAT : [Nom]
+    DESCRIPTION : [Description]
+    LISTE DES INGRÉDIENTS :
+    - [Ingrédient]
+    ÉTAPES DE PRÉPARATION :
     1. [Étape]
-    CONSEIL : [Astuce]`;
+    CONSEIL DU CHEF : [Astuce]`;
 
     showLoading();
 
@@ -82,29 +79,28 @@ async function generateRecipe() {
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Erreur serveur");
+        if (!res.ok) throw new Error(data.error);
 
-        displayRecipe(parseRecipe(data.recipe));
+        const recipe = parseRecipe(data.recipe);
+        displayRecipe(recipe);
     } catch (err) {
-        alert("Oups : " + err.message);
+        alert("Erreur : " + err.message);
         showWelcome();
     }
 }
 
 function parseRecipe(text) {
-    const clean = text.replace(/\*\*/g, '');
+    const clean = text.replace(/\*\*/g, ''); 
     const r = { name: 'Recette ChefIA', description: '', ingredients: [], steps: [], tip: '' };
-    const lines = clean.split('\n');
+    const lines = clean.split('\n').map(l => l.trim()).filter(l => l);
     let section = '';
 
-    lines.forEach(line => {
-        const l = line.trim();
-        if (!l) return;
+    lines.forEach(l => {
         const up = l.toUpperCase();
-        if (up.startsWith('NOM')) r.name = l.split(':')[1]?.trim() || l;
+        if (up.startsWith('NOM DU PLAT')) r.name = l.split(':')[1]?.trim() || l;
         else if (up.startsWith('DESCRIPTION')) r.description = l.split(':')[1]?.trim() || l;
         else if (up.includes('INGRÉDIENTS')) section = 'ing';
-        else if (up.includes('ÉTAPES')) section = 'step';
+        else if (up.includes('PRÉPARATION')) section = 'step';
         else if (up.startsWith('CONSEIL')) r.tip = l.split(':')[1]?.trim() || l;
         else if (section === 'ing' && (l.startsWith('-') || l.startsWith('*'))) r.ingredients.push(l.substring(1).trim());
         else if (section === 'step' && /^\d/.test(l)) r.steps.push(l.replace(/^\d+[\.\)]\s*/, ''));
@@ -115,9 +111,12 @@ function parseRecipe(text) {
 function displayRecipe(r) {
     document.getElementById('dishName').textContent = r.name;
     document.getElementById('dishDescription').textContent = r.description;
-    document.getElementById('chefTip').textContent = r.tip || 'Régale-toi !';
+    document.getElementById('chefTip').textContent = r.tip || 'Bon appétit !';
     document.getElementById('ingredientsList').innerHTML = r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('');
-    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border mb-2"><b>${i+1}.</b> ${s}</div>`).join('');
+    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `
+        <div class="p-3 bg-white rounded shadow-sm border-l-4 border-indigo-500 mb-2">
+            <b>${i+1}.</b> ${s}
+        </div>`).join('');
     
     state.recipeCount++;
     if(elements.recipeCount) elements.recipeCount.textContent = state.recipeCount;
@@ -130,4 +129,3 @@ function showResult() { elements.loading.classList.add('hidden'); elements.welco
 
 elements.generateBtn.onclick = generateRecipe;
 elements.newDishBtn.onclick = generateRecipe;
-renderIngredients();
