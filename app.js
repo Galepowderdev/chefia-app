@@ -47,8 +47,8 @@ const handleAdd = (e, type) => {
     }
 };
 
-elements.ingredientInput.onkeypress = (e) => handleAdd(e, 'sel');
-elements.excludeInput.onkeypress = (e) => handleAdd(e, 'ex');
+if(elements.ingredientInput) elements.ingredientInput.onkeypress = (e) => handleAdd(e, 'sel');
+if(elements.excludeInput) elements.excludeInput.onkeypress = (e) => handleAdd(e, 'ex');
 
 document.querySelectorAll('.quick-add').forEach(btn => {
     btn.onclick = () => {
@@ -59,15 +59,16 @@ document.querySelectorAll('.quick-add').forEach(btn => {
 });
 
 async function generateRecipe() {
-    const prompt = `Crée une recette de cuisine.
-    Ingrédients imposés : ${Array.from(state.selectedIngredients).join(', ') || 'Libre'}.
-    Ingrédients interdits : ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}.
+    // PROMPT ADOUCI POUR ÉVITER LES FILTRES DE SÉCURITÉ
+    const prompt = `Bonjour ! Peux-tu m'aider à cuisiner un plat savoureux ? 
+    J'ai ces ingrédients : ${Array.from(state.selectedIngredients).join(', ') || 'ce que tu veux'}.
+    S'il te plaît, n'utilise pas : ${Array.from(state.excludedIngredients).join(', ') || 'rien de spécial'}.
     
-    Réponds uniquement au format suivant :
-    NOM : [Nom]
-    DESCRIPTION : [Description]
+    Réponds de cette façon précise :
+    NOM : [Nom du plat]
+    DESCRIPTION : [Description courte]
     INGRÉDIENTS :
-    - [Ingrédient]
+    - [Liste]
     ÉTAPES :
     1. [Étape]
     CONSEIL : [Astuce]`;
@@ -85,7 +86,7 @@ async function generateRecipe() {
 
         displayRecipe(parseRecipe(data.recipe));
     } catch (err) {
-        alert("Erreur : " + err.message);
+        alert("Oups : " + err.message);
         showWelcome();
     }
 }
@@ -99,11 +100,12 @@ function parseRecipe(text) {
     lines.forEach(line => {
         const l = line.trim();
         if (!l) return;
-        if (l.toUpperCase().startsWith('NOM')) r.name = l.split(':')[1]?.trim() || l;
-        else if (l.toUpperCase().startsWith('DESCRIPTION')) r.description = l.split(':')[1]?.trim() || l;
-        else if (l.toUpperCase().includes('INGRÉDIENTS')) section = 'ing';
-        else if (l.toUpperCase().includes('ÉTAPES')) section = 'step';
-        else if (l.toUpperCase().startsWith('CONSEIL')) r.tip = l.split(':')[1]?.trim() || l;
+        const up = l.toUpperCase();
+        if (up.startsWith('NOM')) r.name = l.split(':')[1]?.trim() || l;
+        else if (up.startsWith('DESCRIPTION')) r.description = l.split(':')[1]?.trim() || l;
+        else if (up.includes('INGRÉDIENTS')) section = 'ing';
+        else if (up.includes('ÉTAPES')) section = 'step';
+        else if (up.startsWith('CONSEIL')) r.tip = l.split(':')[1]?.trim() || l;
         else if (section === 'ing' && (l.startsWith('-') || l.startsWith('*'))) r.ingredients.push(l.substring(1).trim());
         else if (section === 'step' && /^\d/.test(l)) r.steps.push(l.replace(/^\d+[\.\)]\s*/, ''));
     });
@@ -113,12 +115,12 @@ function parseRecipe(text) {
 function displayRecipe(r) {
     document.getElementById('dishName').textContent = r.name;
     document.getElementById('dishDescription').textContent = r.description;
-    document.getElementById('chefTip').textContent = r.tip || 'Bon appétit !';
+    document.getElementById('chefTip').textContent = r.tip || 'Régale-toi !';
     document.getElementById('ingredientsList').innerHTML = r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('');
     document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border mb-2"><b>${i+1}.</b> ${s}</div>`).join('');
     
     state.recipeCount++;
-    elements.recipeCount.textContent = state.recipeCount;
+    if(elements.recipeCount) elements.recipeCount.textContent = state.recipeCount;
     showResult();
 }
 
