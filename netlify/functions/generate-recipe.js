@@ -16,14 +16,16 @@ exports.handler = async (event, context) => {
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      // DÉSACTIVATION MAXIMALE DES FILTRES
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
       ],
-      generationConfig: { temperature: 0.6, maxOutputTokens: 1000 }
+      generationConfig: {
+        temperature: 0.2, // Très bas pour éviter que l'IA ne raconte n'importe quoi
+        responseMimeType: "application/json"
+      }
     });
 
     return new Promise((resolve) => {
@@ -43,8 +45,7 @@ exports.handler = async (event, context) => {
           if (recipeText) {
             resolve({ statusCode: 200, headers, body: JSON.stringify({ recipe: recipeText }) });
           } else {
-            // Si Google bloque, on renvoie un code spécial "SAFETY"
-            resolve({ statusCode: 200, headers, body: JSON.stringify({ safetyBlock: true }) });
+            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Blocage Sécurité" }) });
           }
         });
       });
