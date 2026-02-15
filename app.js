@@ -191,31 +191,34 @@ MAINTENANT GÉNÈRE TA PROPRE RECETTE EN SUIVANT EXACTEMENT CE FORMAT. COMMENCE 
 async function generateRecipe() {
     showLoading();
     
-    try {
-        // Appel à la fonction serverless Netlify
-        const response = await fetch('/.netlify/functions/generate-recipe', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(buildPrompt())
-        });
+    // Dans app.js, à l'intérieur de generateRecipe
+try {
+    const response = await fetch('/.netlify/functions/generate-recipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: prompt })
+    });
 
-        if (!response.ok) {
-            throw new Error('Erreur lors de la génération de la recette');
-        }
+    const result = await response.json();
+    console.log("Résultat reçu:", result);
 
-        const data = await response.json();
-        
-        console.log('Réponse complète de l\'API:', data);
-        
-        displayRecipe(parseRecipe(data.recipe));
-        updateStats();
-    } catch (error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors de la génération de la recette. Veuillez réessayer.');
-        showWelcome();
+    // Extraction du texte selon la structure de Gemini
+    let recipeText = "";
+    if (result.candidates && result.candidates[0].content) {
+        recipeText = result.candidates[0].content.parts[0].text;
+    } else {
+        throw new Error("Format de réponse inconnu");
     }
+
+    const recipe = parseRecipe(recipeText);
+    displayRecipe(recipe);
+    showResult();
+
+} catch (error) {
+    console.error("Erreur complète:", error);
+    alert("Erreur: " + error.message);
+    showWelcome();
+}
 }
 
 function parseRecipe(text) {
