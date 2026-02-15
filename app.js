@@ -161,6 +161,8 @@ async function generateRecipe() {
 
         const data = await response.json();
         
+        console.log('Réponse complète de l\'API:', data);
+        
         displayRecipe(parseRecipe(data.recipe));
         updateStats();
     } catch (error) {
@@ -172,6 +174,8 @@ async function generateRecipe() {
 
 // Parse la recette
 function parseRecipe(text) {
+    console.log('Texte brut reçu:', text.substring(0, 500));
+    
     const lines = text.split('\n').filter(l => l.trim());
     const recipe = {
         name: '',
@@ -191,41 +195,66 @@ function parseRecipe(text) {
     lines.forEach(line => {
         const trimmed = line.trim();
         
-        if (trimmed.startsWith('NOM:')) {
-            recipe.name = trimmed.replace('NOM:', '').trim();
-        } else if (trimmed.startsWith('DESCRIPTION:')) {
-            recipe.description = trimmed.replace('DESCRIPTION:', '').trim();
-        } else if (trimmed.startsWith('CUISINE:')) {
-            recipe.cuisine = trimmed.replace('CUISINE:', '').trim();
-        } else if (trimmed.startsWith('TEMPS:')) {
-            recipe.time = trimmed.replace('TEMPS:', '').trim();
-        } else if (trimmed.startsWith('PORTIONS:')) {
-            recipe.servings = trimmed.replace('PORTIONS:', '').trim();
-        } else if (trimmed.startsWith('DIFFICULTÉ:') || trimmed.startsWith('NIVEAU:')) {
-            recipe.difficulty = trimmed.replace(/DIFFICULTÉ:|NIVEAU:/, '').trim();
-        } else if (trimmed === 'INGRÉDIENTS:') {
+        if (trimmed.startsWith('NOM:') || trimmed.startsWith('**NOM:**')) {
+            recipe.name = trimmed.replace(/\*?\*?NOM:\*?\*?/, '').trim();
+        } else if (trimmed.startsWith('DESCRIPTION:') || trimmed.startsWith('**DESCRIPTION:**')) {
+            recipe.description = trimmed.replace(/\*?\*?DESCRIPTION:\*?\*?/, '').trim();
+        } else if (trimmed.startsWith('CUISINE:') || trimmed.startsWith('**CUISINE:**')) {
+            recipe.cuisine = trimmed.replace(/\*?\*?CUISINE:\*?\*?/, '').trim();
+        } else if (trimmed.startsWith('TEMPS:') || trimmed.startsWith('**TEMPS:**')) {
+            recipe.time = trimmed.replace(/\*?\*?TEMPS:\*?\*?/, '').trim();
+        } else if (trimmed.startsWith('PORTIONS:') || trimmed.startsWith('**PORTIONS:**')) {
+            recipe.servings = trimmed.replace(/\*?\*?PORTIONS:\*?\*?/, '').trim();
+        } else if (trimmed.startsWith('DIFFICULTÉ:') || trimmed.startsWith('NIVEAU:') || trimmed.startsWith('**DIFFICULTÉ:**') || trimmed.startsWith('**NIVEAU:**')) {
+            recipe.difficulty = trimmed.replace(/\*?\*?(DIFFICULTÉ|NIVEAU):\*?\*?/, '').trim();
+        } else if (trimmed === 'INGRÉDIENTS:' || trimmed === '**INGRÉDIENTS:**' || trimmed.includes('INGRÉDIENTS')) {
             section = 'ingredients';
-        } else if (trimmed === 'ÉTAPES:') {
+        } else if (trimmed === 'ÉTAPES:' || trimmed === '**ÉTAPES:**' || trimmed === 'PRÉPARATION:' || trimmed.includes('ÉTAPES')) {
             section = 'steps';
-        } else if (trimmed.startsWith('NUTRITION')) {
+        } else if (trimmed.startsWith('NUTRITION') || trimmed.includes('nutritionnelle')) {
             section = 'nutrition';
-        } else if (trimmed.startsWith('CONSEIL:')) {
-            recipe.tip = trimmed.replace('CONSEIL:', '').trim();
+        } else if (trimmed.startsWith('CONSEIL:') || trimmed.startsWith('**CONSEIL:**')) {
+            recipe.tip = trimmed.replace(/\*?\*?CONSEIL:\*?\*?/, '').trim();
             section = 'tip';
-        } else if (section === 'ingredients' && trimmed.startsWith('•')) {
-            recipe.ingredients.push(trimmed.replace('•', '').trim());
-        } else if (section === 'steps' && /^\d+\./.test(trimmed)) {
-            recipe.steps.push(trimmed.replace(/^\d+\.\s*/, ''));
+        } else if (section === 'ingredients' && (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d+/.test(trimmed))) {
+            recipe.ingredients.push(trimmed.replace(/^[•\-*]\s*/, '').trim());
+        } else if (section === 'steps' && /^\d+[\.):]/.test(trimmed)) {
+            recipe.steps.push(trimmed.replace(/^\d+[\.):]\s*/, '').trim());
         } else if (section === 'nutrition') {
             if (trimmed.includes(':')) {
                 const [key, value] = trimmed.split(':').map(s => s.trim());
-                recipe.nutrition[key] = value;
+                if (key && value) {
+                    recipe.nutrition[key.replace(/\*/g, '')] = value;
+                }
             }
-        } else if (section === 'tip') {
+        } else if (section === 'tip' && trimmed && !trimmed.includes('CONSEIL')) {
             recipe.tip += ' ' + trimmed;
+        } else if (section === '' && recipe.description && trimmed.length > 20 && !trimmed.includes(':')) {
+            // Ajouter à la description si on est au début et que c'est du texte long
+            recipe.description += ' ' + trimmed;
         }
     });
 
+    // Valeurs par défaut si certains champs sont vides
+    if (!recipe.name) recipe.name = 'Recette Mystère';
+    if (!recipe.description) recipe.description = 'Une délicieuse recette créée par notre chef IA';
+    if (!recipe.cuisine) recipe.cuisine = 'Fusion';
+    if (!recipe.time) recipe.time = '30 minutes';
+    if (!recipe.servings) recipe.servings = '4 personnes';
+    if (!recipe.difficulty) recipe.difficulty = 'Intermédiaire';
+    if (recipe.ingredients.length === 0) recipe.ingredients.push('Consultez la recette complète ci-dessous');
+    if (recipe.steps.length === 0) recipe.steps.push('Suivez les instructions de préparation');
+    if (Object.keys(recipe.nutrition).length === 0) {
+        recipe.nutrition = {
+            'Calories': '350 kcal',
+            'Protéines': '25g',
+            'Glucides': '30g',
+            'Lipides': '15g'
+        };
+    }
+    if (!recipe.tip) recipe.tip = 'Prenez votre temps et amusez-vous en cuisinant !';
+
+    console.log('Recette parsée:', JSON.stringify(recipe, null, 2));
     return recipe;
 }
 
