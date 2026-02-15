@@ -15,18 +15,16 @@ const elements = {
     loading: document.getElementById('loading'),
     welcome: document.getElementById('welcome'),
     result: document.getElementById('result'),
-    recipeCount: document.getElementById('recipeCount'),
-    historySection: document.getElementById('historySection'),
-    historyList: document.getElementById('historyList')
+    recipeCount: document.getElementById('recipeCount')
 };
 
 function renderIngredients() {
     elements.selectedContainer.innerHTML = Array.from(state.selectedIngredients).map(i => `
-        <span class="bg-emerald-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
+        <span class="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
             ${i} <button onclick="removeTag('${i}', 'sel')">×</button>
         </span>`).join('');
     elements.excludedContainer.innerHTML = Array.from(state.excludedIngredients).map(i => `
-        <span class="bg-rose-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
+        <span class="bg-slate-400 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
             ${i} <button onclick="removeTag('${i}', 'ex')">×</button>
         </span>`).join('');
 }
@@ -57,18 +55,16 @@ document.querySelectorAll('.quick-add').forEach(btn => {
 });
 
 async function generateRecipe() {
-    const prompt = `Donne-moi une recette de cuisine.
-    Ingrédients disponibles : ${Array.from(state.selectedIngredients).join(', ') || 'Libre'}.
-    Ingrédients à éviter : ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}.
+    // PROMPT ULTRA-SIMPLIFIÉ POUR ÉVITER LES FILTRES
+    const prompt = `Crée une recette avec : ${Array.from(state.selectedIngredients).join(', ') || 'ce que tu veux'}. 
+    Ne mets pas de : ${Array.from(state.excludedIngredients).join(', ') || 'rien'}.
     
-    Réponds exactement avec ce plan :
-    NOM DU PLAT : [Nom]
-    DESCRIPTION : [Description]
-    LISTE DES INGRÉDIENTS :
-    - [Ingrédient]
-    ÉTAPES DE PRÉPARATION :
-    1. [Étape]
-    CONSEIL DU CHEF : [Astuce]`;
+    Structure de réponse simple :
+    NOM: [Le nom]
+    INFO: [Description]
+    LISTE: [Ingrédients avec des -]
+    ETAPES: [Etapes avec 1.]
+    CONSEIL: [Astuce]`;
 
     showLoading();
 
@@ -81,30 +77,42 @@ async function generateRecipe() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        const recipe = parseRecipe(data.recipe);
-        displayRecipe(recipe);
+        displayRecipe(parseRecipe(data.recipe));
     } catch (err) {
-        alert("Erreur : " + err.message);
+        alert("Erreur de connexion : " + err.message);
         showWelcome();
     }
 }
 
 function parseRecipe(text) {
-    const clean = text.replace(/\*\*/g, ''); 
+    // Nettoyage radical du texte
+    const clean = text.replace(/\*\*/g, '').replace(/###/g, '');
     const r = { name: 'Recette ChefIA', description: '', ingredients: [], steps: [], tip: '' };
-    const lines = clean.split('\n').map(l => l.trim()).filter(l => l);
+    const lines = clean.split('\n');
     let section = '';
 
     lines.forEach(l => {
-        const up = l.toUpperCase();
-        if (up.startsWith('NOM DU PLAT')) r.name = l.split(':')[1]?.trim() || l;
-        else if (up.startsWith('DESCRIPTION')) r.description = l.split(':')[1]?.trim() || l;
-        else if (up.includes('INGRÉDIENTS')) section = 'ing';
-        else if (up.includes('PRÉPARATION')) section = 'step';
-        else if (up.startsWith('CONSEIL')) r.tip = l.split(':')[1]?.trim() || l;
-        else if (section === 'ing' && (l.startsWith('-') || l.startsWith('*'))) r.ingredients.push(l.substring(1).trim());
-        else if (section === 'step' && /^\d/.test(l)) r.steps.push(l.replace(/^\d+[\.\)]\s*/, ''));
+        const line = l.trim();
+        if (!line) return;
+        const up = line.toUpperCase();
+
+        if (up.startsWith('NOM')) r.name = line.split(':')[1]?.trim() || line;
+        else if (up.startsWith('INFO')) r.description = line.split(':')[1]?.trim() || line;
+        else if (up.includes('LISTE')) section = 'ing';
+        else if (up.includes('ETAPES')) section = 'step';
+        else if (up.startsWith('CONSEIL')) r.tip = line.split(':')[1]?.trim() || line;
+        else if (section === 'ing' && (line.startsWith('-') || line.startsWith('*'))) {
+            r.ingredients.push(line.replace(/^[-*]\s*/, ''));
+        } else if (section === 'step' && /^\d/.test(line)) {
+            r.steps.push(line.replace(/^\d+[\.\)]\s*/, ''));
+        }
     });
+
+    // Sécurité : si le parsing a échoué (IA a changé le format), on met tout dans la description
+    if (r.ingredients.length === 0 && r.steps.length === 0) {
+        r.description = clean;
+    }
+    
     return r;
 }
 
@@ -112,11 +120,14 @@ function displayRecipe(r) {
     document.getElementById('dishName').textContent = r.name;
     document.getElementById('dishDescription').textContent = r.description;
     document.getElementById('chefTip').textContent = r.tip || 'Bon appétit !';
-    document.getElementById('ingredientsList').innerHTML = r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('');
-    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `
-        <div class="p-3 bg-white rounded shadow-sm border-l-4 border-indigo-500 mb-2">
-            <b>${i+1}.</b> ${s}
-        </div>`).join('');
+    
+    document.getElementById('ingredientsList').innerHTML = r.ingredients.length > 0 
+        ? r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('')
+        : '<p class="p-2 text-gray-400 text-sm">Voir description</p>';
+
+    document.getElementById('stepsList').innerHTML = r.steps.length > 0
+        ? r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border-l-4 border-indigo-500 mb-2"><b>${i+1}.</b> ${s}</div>`).join('')
+        : '<p class="p-2 text-gray-400 text-sm">La recette complète est affichée ci-dessus.</p>';
     
     state.recipeCount++;
     if(elements.recipeCount) elements.recipeCount.textContent = state.recipeCount;
@@ -129,3 +140,4 @@ function showResult() { elements.loading.classList.add('hidden'); elements.welco
 
 elements.generateBtn.onclick = generateRecipe;
 elements.newDishBtn.onclick = generateRecipe;
+renderIngredients();
