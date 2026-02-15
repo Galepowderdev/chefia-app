@@ -15,18 +15,18 @@ exports.handler = async (event, context) => {
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
-            return { statusCode: 500, headers, body: JSON.stringify({ error: "Clé API GEMINI_API_KEY manquante dans Netlify." }) };
+            return { statusCode: 500, headers, body: JSON.stringify({ error: "Clé API non configurée dans Netlify." }) };
         }
 
         const requestBody = JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 2500 }
+            contents: [{ parts: [{ text: prompt }] }]
         });
 
         return new Promise((resolve) => {
             const options = {
                 hostname: 'generativelanguage.googleapis.com',
-                path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+                // PASSAGE EN V1 (Plus stable que v1beta pour certains comptes)
+                path: `/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             };
@@ -35,7 +35,11 @@ exports.handler = async (event, context) => {
                 let str = '';
                 res.on('data', (chunk) => str += chunk);
                 res.on('end', () => {
-                    resolve({ statusCode: res.statusCode, headers, body: str });
+                    resolve({
+                        statusCode: res.statusCode,
+                        headers,
+                        body: str
+                    });
                 });
             });
 
