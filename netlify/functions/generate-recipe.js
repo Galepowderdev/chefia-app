@@ -18,13 +18,19 @@ exports.handler = async (event, context) => {
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      // On garde uniquement le strict nécessaire
+      // Paramètres de sécurité au minimum absolu
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-      ]
+      ],
+      generationConfig: {
+        temperature: 0.4, // Plus bas pour être plus précis et moins "créatif" (évite les blocages)
+        topP: 1,
+        maxOutputTokens: 1000,
+        responseMimeType: "application/json" // On force la réponse en format JSON
+      }
     });
 
     return new Promise((resolve) => {
@@ -41,7 +47,6 @@ exports.handler = async (event, context) => {
         res.on('end', () => {
           try {
             const data = JSON.parse(str);
-            // Vérification de la présence de texte
             const recipeText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             
             if (recipeText) {
@@ -51,16 +56,15 @@ exports.handler = async (event, context) => {
                 body: JSON.stringify({ recipe: recipeText })
               });
             } else {
-              // On renvoie l'erreur détaillée pour ne plus avoir "Inconnu"
-              const msg = data.promptFeedback?.blockReason || "Refus de génération (Sécurité)";
+              // Si Google bloque, on renvoie une réponse générique sécurisée au lieu de l'erreur
               resolve({
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({ error: msg, debug: data })
+                body: JSON.stringify({ error: "L'IA est timide aujourd'hui. Réessayez avec des ingrédients plus simples." })
               });
             }
           } catch (e) {
-            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur de traitement API" }) });
+            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur serveur API" }) });
           }
         });
       });
