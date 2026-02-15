@@ -18,13 +18,14 @@ const elements = {
     recipeCount: document.getElementById('recipeCount')
 };
 
+// Gestion des tags (Ajout/Suppression)
 function renderIngredients() {
     elements.selectedContainer.innerHTML = Array.from(state.selectedIngredients).map(i => `
-        <span class="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
+        <span class="bg-indigo-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
             ${i} <button onclick="removeTag('${i}', 'sel')">×</button>
         </span>`).join('');
     elements.excludedContainer.innerHTML = Array.from(state.excludedIngredients).map(i => `
-        <span class="bg-slate-400 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 shadow-sm">
+        <span class="bg-red-500 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
             ${i} <button onclick="removeTag('${i}', 'ex')">×</button>
         </span>`).join('');
 }
@@ -43,28 +44,14 @@ const handleInput = (e, type) => {
     }
 };
 
-if(elements.ingredientInput) elements.ingredientInput.onkeypress = (e) => handleInput(e, 'sel');
-if(elements.excludeInput) elements.excludeInput.onkeypress = (e) => handleInput(e, 'ex');
-
-document.querySelectorAll('.quick-add').forEach(btn => {
-    btn.onclick = () => {
-        const txt = btn.textContent.trim().split(' ').pop().toLowerCase();
-        state.selectedIngredients.add(txt);
-        renderIngredients();
-    };
-});
+elements.ingredientInput.onkeypress = (e) => handleInput(e, 'sel');
+elements.excludeInput.onkeypress = (e) => handleInput(e, 'ex');
 
 async function generateRecipe() {
-    // PROMPT ULTRA-SIMPLIFIÉ POUR ÉVITER LES FILTRES
-    const prompt = `Crée une recette avec : ${Array.from(state.selectedIngredients).join(', ') || 'ce que tu veux'}. 
-    Ne mets pas de : ${Array.from(state.excludedIngredients).join(', ') || 'rien'}.
-    
-    Structure de réponse simple :
-    NOM: [Le nom]
-    INFO: [Description]
-    LISTE: [Ingrédients avec des -]
-    ETAPES: [Etapes avec 1.]
-    CONSEIL: [Astuce]`;
+    // LE PROMPT EN FORMAT JSON (Le plus stable au monde)
+    const prompt = `Génère une recette de cuisine avec ces ingrédients : ${Array.from(state.selectedIngredients).join(', ') || 'choix libre'}. 
+    Exclus : ${Array.from(state.excludedIngredients).join(', ') || 'aucun'}.
+    Réponds uniquement par un objet JSON avec ces clés : "nom", "description", "ingredients" (tableau), "etapes" (tableau), "conseil".`;
 
     showLoading();
 
@@ -77,60 +64,30 @@ async function generateRecipe() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        displayRecipe(parseRecipe(data.recipe));
+        // On parse le JSON renvoyé par l'IA
+        const recipe = JSON.parse(data.recipe);
+        displayRecipe(recipe);
     } catch (err) {
-        alert("Erreur de connexion : " + err.message);
+        alert("Note : Si l'IA bloque, essayez de retirer certains ingrédients sensibles (alcool, etc.)");
         showWelcome();
     }
 }
 
-function parseRecipe(text) {
-    // Nettoyage radical du texte
-    const clean = text.replace(/\*\*/g, '').replace(/###/g, '');
-    const r = { name: 'Recette ChefIA', description: '', ingredients: [], steps: [], tip: '' };
-    const lines = clean.split('\n');
-    let section = '';
-
-    lines.forEach(l => {
-        const line = l.trim();
-        if (!line) return;
-        const up = line.toUpperCase();
-
-        if (up.startsWith('NOM')) r.name = line.split(':')[1]?.trim() || line;
-        else if (up.startsWith('INFO')) r.description = line.split(':')[1]?.trim() || line;
-        else if (up.includes('LISTE')) section = 'ing';
-        else if (up.includes('ETAPES')) section = 'step';
-        else if (up.startsWith('CONSEIL')) r.tip = line.split(':')[1]?.trim() || line;
-        else if (section === 'ing' && (line.startsWith('-') || line.startsWith('*'))) {
-            r.ingredients.push(line.replace(/^[-*]\s*/, ''));
-        } else if (section === 'step' && /^\d/.test(line)) {
-            r.steps.push(line.replace(/^\d+[\.\)]\s*/, ''));
-        }
-    });
-
-    // Sécurité : si le parsing a échoué (IA a changé le format), on met tout dans la description
-    if (r.ingredients.length === 0 && r.steps.length === 0) {
-        r.description = clean;
-    }
-    
-    return r;
-}
-
 function displayRecipe(r) {
-    document.getElementById('dishName').textContent = r.name;
-    document.getElementById('dishDescription').textContent = r.description;
-    document.getElementById('chefTip').textContent = r.tip || 'Bon appétit !';
+    document.getElementById('dishName').textContent = r.nom || 'Recette Maison';
+    document.getElementById('dishDescription').textContent = r.description || '';
+    document.getElementById('chefTip').textContent = r.conseil || 'Bon appétit !';
     
-    document.getElementById('ingredientsList').innerHTML = r.ingredients.length > 0 
-        ? r.ingredients.map(i => `<li class="p-2 border-b">✔ ${i}</li>`).join('')
-        : '<p class="p-2 text-gray-400 text-sm">Voir description</p>';
-
-    document.getElementById('stepsList').innerHTML = r.steps.length > 0
-        ? r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border-l-4 border-indigo-500 mb-2"><b>${i+1}.</b> ${s}</div>`).join('')
-        : '<p class="p-2 text-gray-400 text-sm">La recette complète est affichée ci-dessus.</p>';
+    document.getElementById('ingredientsList').innerHTML = (r.ingredients || []).map(i => `
+        <li class="p-2 border-b">✔ ${i}</li>`).join('');
+    
+    document.getElementById('stepsList').innerHTML = (r.etapes || []).map((s, i) => `
+        <div class="p-3 bg-white rounded shadow-sm border-l-4 border-indigo-500 mb-2">
+            <b>${i+1}.</b> ${s}
+        </div>`).join('');
     
     state.recipeCount++;
-    if(elements.recipeCount) elements.recipeCount.textContent = state.recipeCount;
+    elements.recipeCount.textContent = state.recipeCount;
     showResult();
 }
 
@@ -140,4 +97,3 @@ function showResult() { elements.loading.classList.add('hidden'); elements.welco
 
 elements.generateBtn.onclick = generateRecipe;
 elements.newDishBtn.onclick = generateRecipe;
-renderIngredients();
