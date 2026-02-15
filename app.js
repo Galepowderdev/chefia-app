@@ -80,11 +80,12 @@ function removeIngredient(ing, type) {
 // --- GÉNÉRATION DE LA RECETTE ---
 
 async function generateRecipe() {
-    const cuisine = document.getElementById('cuisineType').value;
-    const time = document.getElementById('maxTime').value;
-    const difficulty = document.getElementById('difficulty').value;
+    // Correction des IDs pour correspondre exactement à ton index.html
+    const cuisine = document.getElementById('cuisine-type')?.value || 'Libre';
+    const time = document.getElementById('prep-time')?.value || '60';
+    const difficulty = document.getElementById('difficulty-level')?.value || 'Intermédiaire';
 
-    // Construction du prompt (anciennement createPrompt)
+    // Construction du prompt
     const prompt = `Génère une recette de cuisine unique et créative.
     Type de cuisine: ${cuisine}
     Temps max: ${time} min
@@ -124,16 +125,20 @@ async function generateRecipe() {
             body: JSON.stringify({ prompt: prompt })
         });
 
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.details || errorData.error || "Erreur serveur");
+        }
+
         const result = await response.json();
         
-        // Extraction du texte
         let recipeText = "";
         if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
             recipeText = result.candidates[0].content.parts[0].text;
-        } else if (result.recipe) { // Support pour l'ancienne version
+        } else if (result.recipe) {
             recipeText = result.recipe;
         } else {
-            throw new Error("Impossible de lire la réponse de l'IA");
+            throw new Error("Format de réponse inconnu");
         }
 
         const recipe = parseRecipe(recipeText);
@@ -144,7 +149,7 @@ async function generateRecipe() {
 
     } catch (error) {
         console.error("Erreur complète:", error);
-        alert("Erreur: " + error.message);
+        alert("Désolé, une erreur est survenue : " + error.message);
         showWelcome();
     }
 }
