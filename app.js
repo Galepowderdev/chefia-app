@@ -219,9 +219,7 @@ async function generateRecipe() {
 }
 
 function parseRecipe(text) {
-    console.log('Texte brut reçu:', text.substring(0, 500));
-    
-    // Nettoyage : On enlève les étoiles de gras qui font rater les startsWith()
+    // 1. On retire les ** que l'IA met partout pour le gras
     const cleanText = text.replace(/\*\*/g, '');
     const lines = cleanText.split('\n').filter(l => l.trim());
     
@@ -236,15 +234,15 @@ function parseRecipe(text) {
         const trimmed = line.trim();
         const upper = trimmed.toUpperCase();
         
-        // Détection des champs simples (insensible à la casse)
-        if (upper.startsWith('NOM:')) recipe.name = trimmed.split(':')[1].trim();
-        else if (upper.startsWith('DESCRIPTION:')) recipe.description = trimmed.split(':')[1].trim();
-        else if (upper.startsWith('CUISINE:')) recipe.cuisine = trimmed.split(':')[1].trim();
-        else if (upper.startsWith('TEMPS:')) recipe.time = trimmed.split(':')[1].trim();
-        else if (upper.startsWith('PORTIONS:')) recipe.servings = trimmed.split(':')[1].trim();
-        else if (upper.startsWith('DIFFICULTÉ:') || upper.startsWith('NIVEAU:')) recipe.difficulty = trimmed.split(':')[1].trim();
+        // Détection des champs (insensible à la casse et aux espaces)
+        if (upper.startsWith('NOM:')) recipe.name = trimmed.replace(/NOM:\s*/i, '');
+        else if (upper.startsWith('DESCRIPTION:')) recipe.description = trimmed.replace(/DESCRIPTION:\s*/i, '');
+        else if (upper.startsWith('CUISINE:')) recipe.cuisine = trimmed.replace(/CUISINE:\s*/i, '');
+        else if (upper.startsWith('TEMPS:')) recipe.time = trimmed.replace(/TEMPS:\s*/i, '');
+        else if (upper.startsWith('PORTIONS:')) recipe.servings = trimmed.replace(/PORTIONS:\s*/i, '');
+        else if (upper.startsWith('DIFFICULTÉ:') || upper.startsWith('NIVEAU:')) recipe.difficulty = trimmed.replace(/(DIFFICULTÉ|NIVEAU):\s*/i, '');
         
-        // Détection des sections
+        // Détection des changements de section
         else if (upper.includes('INGRÉDIENTS:')) section = 'ingredients';
         else if (upper.includes('ÉTAPES:') || upper.includes('PRÉPARATION:')) section = 'steps';
         else if (upper.includes('NUTRITION')) section = 'nutrition';
@@ -252,7 +250,7 @@ function parseRecipe(text) {
             recipe.tip = trimmed.replace(/CONSEIL:\s*/i, '');
             section = 'tip';
         } 
-        // Remplissage des données
+        // Remplissage des tableaux
         else if (section === 'ingredients' && (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d/.test(trimmed))) {
             recipe.ingredients.push(trimmed.replace(/^[•\-*]\s*/, '').trim());
         } else if (section === 'steps' && /^\d+/.test(trimmed)) {
@@ -265,10 +263,10 @@ function parseRecipe(text) {
         }
     });
 
-    // Fallbacks de sécurité pour éviter les champs vides
-    if (!recipe.name) recipe.name = "Chef's Special";
-    if (recipe.ingredients.length === 0) recipe.ingredients = ["Ingrédients détaillés dans la préparation"];
-    if (recipe.steps.length === 0) recipe.steps = ["Mélanger les ingrédients et cuire selon votre goût"];
+    // Sécurités
+    if (!recipe.name) recipe.name = "Recette du Chef";
+    if (recipe.ingredients.length === 0) recipe.ingredients = ["Détails dans la préparation"];
+    if (recipe.steps.length === 0) recipe.steps = ["Mélanger et cuire selon votre convenance"];
 
     return recipe;
 }
