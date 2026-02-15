@@ -219,54 +219,55 @@ async function generateRecipe() {
 }
 
 function parseRecipe(text) {
-    // 1. On retire les ** que l'IA met partout pour le gras
-    const cleanText = text.replace(/\*\*/g, '');
-    const lines = cleanText.split('\n').filter(l => l.trim());
+    // Nettoyage complet pour éviter que les ** ne cassent les détections
+    const lines = text.split('\n').map(l => l.replace(/\*\*/g, '').trim()).filter(l => l.length > 0);
     
     const recipe = {
         name: '', description: '', cuisine: '', time: '', servings: '',
         difficulty: '', ingredients: [], steps: [], nutrition: {}, tip: ''
     };
 
-    let section = '';
+    let currentSection = '';
     
     lines.forEach(line => {
-        const trimmed = line.trim();
-        const upper = trimmed.toUpperCase();
+        const upper = line.toUpperCase();
         
-        // Détection des champs (insensible à la casse et aux espaces)
-        if (upper.startsWith('NOM:')) recipe.name = trimmed.replace(/NOM:\s*/i, '');
-        else if (upper.startsWith('DESCRIPTION:')) recipe.description = trimmed.replace(/DESCRIPTION:\s*/i, '');
-        else if (upper.startsWith('CUISINE:')) recipe.cuisine = trimmed.replace(/CUISINE:\s*/i, '');
-        else if (upper.startsWith('TEMPS:')) recipe.time = trimmed.replace(/TEMPS:\s*/i, '');
-        else if (upper.startsWith('PORTIONS:')) recipe.servings = trimmed.replace(/PORTIONS:\s*/i, '');
-        else if (upper.startsWith('DIFFICULTÉ:') || upper.startsWith('NIVEAU:')) recipe.difficulty = trimmed.replace(/(DIFFICULTÉ|NIVEAU):\s*/i, '');
+        // 1. Détection des en-têtes
+        if (upper.startsWith('NOM:')) recipe.name = line.split(':')[1].trim();
+        else if (upper.startsWith('DESCRIPTION:')) recipe.description = line.split(':')[1].trim();
+        else if (upper.startsWith('CUISINE:')) recipe.cuisine = line.split(':')[1].trim();
+        else if (upper.startsWith('TEMPS:')) recipe.time = line.split(':')[1].trim();
+        else if (upper.startsWith('PORTIONS:')) recipe.servings = line.split(':')[1].trim();
+        else if (upper.startsWith('DIFFICULTÉ:') || upper.startsWith('NIVEAU:')) recipe.difficulty = line.split(':')[1].trim();
         
-        // Détection des changements de section
-        else if (upper.includes('INGRÉDIENTS:')) section = 'ingredients';
-        else if (upper.includes('ÉTAPES:') || upper.includes('PRÉPARATION:')) section = 'steps';
-        else if (upper.includes('NUTRITION')) section = 'nutrition';
+        // 2. Changement de section
+        else if (upper.includes('INGRÉDIENTS')) currentSection = 'ingredients';
+        else if (upper.includes('ÉTAPES') || upper.includes('PRÉPARATION')) currentSection = 'steps';
+        else if (upper.includes('NUTRITION')) currentSection = 'nutrition';
         else if (upper.startsWith('CONSEIL:')) {
-            recipe.tip = trimmed.replace(/CONSEIL:\s*/i, '');
-            section = 'tip';
-        } 
-        // Remplissage des tableaux
-        else if (section === 'ingredients' && (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d/.test(trimmed))) {
-            recipe.ingredients.push(trimmed.replace(/^[•\-*]\s*/, '').trim());
-        } else if (section === 'steps' && /^\d+/.test(trimmed)) {
-            recipe.steps.push(trimmed.replace(/^\d+[\.):]\s*/, '').trim());
-        } else if (section === 'nutrition' && trimmed.includes(':')) {
-            const [key, value] = trimmed.split(':').map(s => s.trim());
-            recipe.nutrition[key] = value;
-        } else if (section === 'tip') {
-            recipe.tip += ' ' + trimmed;
+            recipe.tip = line.replace(/CONSEIL:\s*/i, '');
+            currentSection = 'tip';
+        }
+        
+        // 3. Capture des contenus selon la section
+        else {
+            if (currentSection === 'ingredients' && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || /^\d/.test(line))) {
+                recipe.ingredients.push(line.replace(/^[•\-*]\s*/, '').trim());
+            } else if (currentSection === 'steps' && /^\d/.test(line)) {
+                recipe.steps.push(line.replace(/^\d+[\.):]\s*/, '').trim());
+            } else if (currentSection === 'nutrition' && line.includes(':')) {
+                const [k, v] = line.split(':').map(s => s.trim());
+                recipe.nutrition[k] = v;
+            } else if (currentSection === 'tip') {
+                recipe.tip += ' ' + line;
+            }
         }
     });
 
-    // Sécurités
-    if (!recipe.name) recipe.name = "Recette du Chef";
-    if (recipe.ingredients.length === 0) recipe.ingredients = ["Détails dans la préparation"];
-    if (recipe.steps.length === 0) recipe.steps = ["Mélanger et cuire selon votre convenance"];
+    // Sécurités pour l'affichage
+    if (!recipe.name) recipe.name = "Spécialité du Chef";
+    if (recipe.ingredients.length === 0) recipe.ingredients = ["Consultez la préparation pour les détails"];
+    if (recipe.steps.length === 0) recipe.steps = ["Mélanger les ingrédients et cuire à votre convenance"];
 
     return recipe;
 }
