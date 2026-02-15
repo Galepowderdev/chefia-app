@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ChefIA - Votre Assistant Culinaire Intelligent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .slide-up {
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .ingredient-tag {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .ingredient-tag:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        .recipe-card {
+            transition: all 0.4s ease;
+        }
+        
+        .recipe-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .cooking-loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f4f6;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+        
+        .badge {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+        
+        .badge:hover::before {
+            left: 100%;
+        }
+    </style>
+</head>
+<body class="min-h-screen gradient-bg">
+    <!-- Header avec animation -->
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-12 slide-up">
+            <div class="inline-block float mb-4">
+                <div class="text-8xl">👨‍🍳</div>
+            </div>
+            <h1 class="text-6xl font-bold text-white mb-4 drop-shadow-lg">ChefIA</h1>
+            <p class="text-xl text-white/90 max-w-2xl mx-auto">
+                Votre assistant culinaire intelligent propulsé par l'IA. 
+                Des milliers de recettes uniques adaptées à vos ingrédients.
+            </p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto">
+            <div class="grid lg:grid-cols-3 gap-8">
+                
+                <!-- Panneau de contrôle -->
+                <div class="lg:col-span-1">
+                    <div class="glass rounded-3xl p-6 shadow-2xl slide-up sticky top-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            <span>🎯</span> Mes Préférences
+                        </h2>
+                        
+                        <!-- Ingrédients disponibles -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                <span class="text-2xl">✅</span>
+                                <span>J'ai ces ingrédients</span>
+                            </label>
+                            <div class="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 border-2 border-dashed border-gray-300 rounded-xl" id="selectedIngredients">
+                                <span class="text-gray-400 text-sm self-center" id="emptyInclude">Ajoutez vos ingrédients...</span>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="ingredientInput"
+                                placeholder="Ex: poulet, tomates, pâtes..."
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition text-sm"
+                            >
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <button class="quick-add text-xs px-3 py-1 bg-gray-100 hover:bg-purple-100 rounded-full transition">🍗 Poulet</button>
+                                <button class="quick-add text-xs px-3 py-1 bg-gray-100 hover:bg-purple-100 rounded-full transition">🍝 Pâtes</button>
+                                <button class="quick-add text-xs px-3 py-1 bg-gray-100 hover:bg-purple-100 rounded-full transition">🍅 Tomates</button>
+                                <button class="quick-add text-xs px-3 py-1 bg-gray-100 hover:bg-purple-100 rounded-full transition">🥚 Œufs</button>
+                            </div>
+                        </div>
+
+                        <!-- Ingrédients à éviter -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                <span class="text-2xl">❌</span>
+                                <span>À éviter absolument</span>
+                            </label>
+                            <div class="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 border-2 border-dashed border-red-200 rounded-xl" id="excludedIngredients">
+                                <span class="text-gray-400 text-sm self-center" id="emptyExclude">Aucune restriction</span>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="excludeInput"
+                                placeholder="Ex: poisson, lactose, gluten..."
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-200 focus:outline-none transition text-sm"
+                            >
+                        </div>
+
+                        <!-- Préférences culinaires -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                <span class="text-2xl">🌍</span>
+                                <span>Type de cuisine</span>
+                            </label>
+                            <select id="cuisineType" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition text-sm">
+                                <option value="">Toutes les cuisines</option>
+                                <option value="française">🇫🇷 Française</option>
+                                <option value="italienne">🇮🇹 Italienne</option>
+                                <option value="asiatique">🥢 Asiatique</option>
+                                <option value="méditerranéenne">🌊 Méditerranéenne</option>
+                                <option value="mexicaine">🌮 Mexicaine</option>
+                                <option value="indienne">🇮🇳 Indienne</option>
+                                <option value="japonaise">🇯🇵 Japonaise</option>
+                                <option value="fusion">✨ Fusion</option>
+                            </select>
+                        </div>
+
+                        <!-- Temps de préparation -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                <span class="text-2xl">⏱️</span>
+                                <span>Temps maximum</span>
+                            </label>
+                            <select id="timeLimit" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition text-sm">
+                                <option value="">Peu importe</option>
+                                <option value="15">⚡ Express (15 min)</option>
+                                <option value="30">🏃 Rapide (30 min)</option>
+                                <option value="60">⏰ Modéré (1h)</option>
+                                <option value="120">🕐 Élaboré (2h+)</option>
+                            </select>
+                        </div>
+
+                        <!-- Niveau de difficulté -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                <span class="text-2xl">📊</span>
+                                <span>Niveau de difficulté</span>
+                            </label>
+                            <select id="difficulty" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition text-sm">
+                                <option value="">Tous niveaux</option>
+                                <option value="débutant">🌱 Débutant</option>
+                                <option value="intermédiaire">⭐ Intermédiaire</option>
+                                <option value="avancé">🔥 Avancé</option>
+                            </select>
+                        </div>
+
+                        <!-- Bouton principal -->
+                        <button 
+                            id="generateBtn"
+                            class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:from-purple-700 hover:to-indigo-700 transition transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                        >
+                            <span class="text-2xl">🎲</span>
+                            <span>Générer une recette magique</span>
+                        </button>
+
+                        <!-- Stats -->
+                        <div class="mt-6 grid grid-cols-2 gap-4">
+                            <div class="bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl p-4 text-center">
+                                <div class="text-3xl font-bold text-purple-600" id="recipeCount">0</div>
+                                <div class="text-xs text-purple-800 font-medium">Recettes générées</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-indigo-100 to-indigo-50 rounded-xl p-4 text-center">
+                                <div class="text-3xl font-bold text-indigo-600" id="uniqueCount">0</div>
+                                <div class="text-xs text-indigo-800 font-medium">Recettes uniques</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zone de résultats -->
+                <div class="lg:col-span-2">
+                    <!-- Loading State -->
+                    <div id="loading" class="hidden">
+                        <div class="glass rounded-3xl p-12 shadow-2xl text-center slide-up">
+                            <div class="cooking-loader mx-auto mb-6"></div>
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">Création en cours...</h3>
+                            <p class="text-gray-600">Notre chef IA prépare une recette unique pour vous</p>
+                            <div class="mt-6 flex justify-center gap-2">
+                                <div class="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+                                <div class="w-3 h-3 bg-purple-500 rounded-full animate-pulse" style="animation-delay: 0.2s"></div>
+                                <div class="w-3 h-3 bg-purple-500 rounded-full animate-pulse" style="animation-delay: 0.4s"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Welcome State -->
+                    <div id="welcome" class="slide-up">
+                        <div class="glass rounded-3xl p-12 shadow-2xl text-center">
+                            <div class="text-8xl mb-6 float">🍳</div>
+                            <h2 class="text-4xl font-bold text-gray-800 mb-4">Bienvenue sur ChefIA</h2>
+                            <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                                Sélectionnez vos ingrédients, choisissez vos préférences et laissez l'intelligence artificielle 
+                                vous proposer des recettes infiniment variées et délicieuses.
+                            </p>
+                            <div class="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+                                <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl">
+                                    <div class="text-4xl mb-3">🎯</div>
+                                    <h3 class="font-bold text-gray-800 mb-2">Personnalisé</h3>
+                                    <p class="text-sm text-gray-600">Adapté à vos ingrédients et restrictions</p>
+                                </div>
+                                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl">
+                                    <div class="text-4xl mb-3">♾️</div>
+                                    <h3 class="font-bold text-gray-800 mb-2">Infini</h3>
+                                    <p class="text-sm text-gray-600">Des milliers de recettes uniques</p>
+                                </div>
+                                <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-2xl">
+                                    <div class="text-4xl mb-3">⚡</div>
+                                    <h3 class="font-bold text-gray-800 mb-2">Instantané</h3>
+                                    <p class="text-sm text-gray-600">Résultats en quelques secondes</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result Card -->
+                    <div id="result" class="hidden slide-up">
+                        <div class="glass rounded-3xl shadow-2xl overflow-hidden recipe-card">
+                            <!-- Header de la recette -->
+                            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-8 text-white">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="badge bg-white/20 px-3 py-1 rounded-full text-sm font-medium" id="cuisineBadge"></span>
+                                            <span class="badge bg-white/20 px-3 py-1 rounded-full text-sm font-medium" id="difficultyBadge"></span>
+                                        </div>
+                                        <h2 class="text-4xl font-bold mb-2" id="dishName"></h2>
+                                        <p class="text-white/90 text-lg" id="dishDescription"></p>
+                                    </div>
+                                    <div class="text-6xl float">🍽️</div>
+                                </div>
+                                <div class="flex gap-6 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        <span>⏱️</span>
+                                        <span id="prepTime"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span>👥</span>
+                                        <span id="servings"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span>📊</span>
+                                        <span id="difficulty2"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Contenu de la recette -->
+                            <div class="p-8">
+                                <div class="grid md:grid-cols-2 gap-8 mb-8">
+                                    <!-- Ingrédients -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                            <span>🛒</span> Ingrédients
+                                        </h3>
+                                        <ul class="space-y-2" id="ingredientsList"></ul>
+                                    </div>
+
+                                    <!-- Info nutritionnelle -->
+                                    <div>
+                                        <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                            <span>📊</span> Valeurs nutritionnelles
+                                        </h3>
+                                        <div class="space-y-2" id="nutritionInfo"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Étapes de préparation -->
+                                <div class="mb-8">
+                                    <h3 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        <span>👨‍🍳</span> Préparation
+                                    </h3>
+                                    <div class="space-y-4" id="stepsList"></div>
+                                </div>
+
+                                <!-- Conseils du chef -->
+                                <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-6 mb-6">
+                                    <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <span>💡</span> Conseil du chef
+                                    </h3>
+                                    <p class="text-gray-700" id="chefTip"></p>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex gap-4">
+                                    <button 
+                                        id="newDishBtn"
+                                        class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                                    >
+                                        <span>🔄</span>
+                                        <span>Nouvelle recette</span>
+                                    </button>
+                                    <button 
+                                        id="saveBtn"
+                                        class="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-4 rounded-xl font-bold hover:from-blue-600 hover:to-cyan-600 transition transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                                    >
+                                        <span>💾</span>
+                                        <span>Sauvegarder</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historique -->
+                    <div id="historySection" class="hidden mt-8 slide-up">
+                        <div class="glass rounded-3xl p-6 shadow-2xl">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                    <span>📚</span> Mes dernières recettes
+                                </h3>
+                                <button id="clearHistory" class="text-sm text-gray-500 hover:text-red-500 transition">
+                                    Effacer
+                                </button>
+                            </div>
+                            <div id="historyList" class="space-y-3 custom-scrollbar max-h-96 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
