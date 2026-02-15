@@ -9,46 +9,54 @@ exports.handler = async (event, context) => {
     'Content-Type': 'application/json'
   };
 
+  // Gérer les requêtes OPTIONS (preflight)
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
   }
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method Not Allowed' })
+    };
   }
 
   try {
     const data = JSON.parse(event.body);
     const { prompt } = data;
 
+    // Appel à l'API Google Gemini (GRATUIT!)
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('API Key Google Gemini non configurée');
+    
+    if (!apiKey) {
+      throw new Error('API Key Google Gemini non configurée');
+    }
 
     const requestBody = JSON.stringify({
-      model: "gemini-1.5-flash",
-      safetySettings: [
-        { category: "HARM_CATEGORY_DEROGATORY", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_TOXICITY", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_VIOLENCE", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUAL", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_MEDICAL", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_DANGEROUS", threshold: "BLOCK_NONE" },
-      ],
-      temperature: 0.9,
-      topP: 0.95,
-      topK: 40,
-      maxOutputTokens: 2048,
-      prompt: [
-        {
-          user: prompt
-        }
-      ]
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.9,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      }
     });
+
+    console.log('Appel API Gemini avec clé:', apiKey ? 'Clé présente (AIza...)' : 'Clé absente!');
 
     const response = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/gemini-1.5-flash:generateMessage?key=${apiKey}`,
+        path: `/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -58,98 +66,130 @@ exports.handler = async (event, context) => {
 
       const req = https.request(options, (res) => {
         let data = '';
-        res.on('data', chunk => data += chunk);
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
         res.on('end', () => {
+          console.log('Status Code:', res.statusCode);
+          console.log('Response Headers:', JSON.stringify(res.headers));
+          
           try {
             const parsed = JSON.parse(data);
-
+            
+            // Vérifier si c'est une erreur HTTP
             if (res.statusCode !== 200) {
-              reject(new Error(`API Gemini error (${res.statusCode}): ${parsed.error?.message || data.substring(0,200)}`));
+              console.error('Erreur API (status ' + res.statusCode + '):', data);
+              reject(new Error(`API Gemini error (${res.statusCode}): ${parsed.error?.message || data.substring(0, 200)}`));
               return;
             }
-
+            
             resolve(parsed);
           } catch (e) {
-            reject(new Error('Erreur parsing de la réponse: ' + e.message));
+            console.error('Erreur parsing:', e);
+            console.error('Raw response:', data.substring(0, 500));
+            reject(new Error('Erreur de parsing de la réponse: ' + e.message));
           }
         });
       });
 
-      req.on('error', reject);
+      req.on('error', (error) => {
+        reject(error);
+      });
+
       req.write(requestBody);
       req.end();
     });
 
-    // Extraire le texte
+    // Log pour debugging détaillé
+    console.log('=== RÉPONSE GEMINI COMPLÈTE ===');
+    console.log(JSON.stringify(response, null, 2));
+    console.log('=== FIN RÉPONSE ===');
+
+    // Vérifier s'il y a une erreur dans la réponse
+    if (response.error) {
+      console.error('Erreur dans la réponse:', response.error);
+      throw new Error(`Erreur API Gemini: ${response.error.message || JSON.stringify(response.error)}`);
+    }
+
+    // Extraire le texte de différentes façons possibles
     let recipeText = null;
 
-    if (response.candidates && response.candidates[0]?.content?.length) {
-      recipeText = response.candidates[0].content[0].text;
-    } else if (response.candidates && response.candidates[0]?.text) {
-      recipeText = response.candidates[0].text;
-    } else if (response.text) {
+    // Vérifier la structure des candidats
+    if (response.candidates && Array.isArray(response.candidates) && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      console.log('=== CANDIDATE TROUVÉ ===');
+      console.log(JSON.stringify(candidate, null, 2));
+      
+      // Cas 1: Structure normale Gemini (content.parts[0].text)
+      if (candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+        if (candidate.content.parts[0].text) {
+          recipeText = candidate.content.parts[0].text;
+          console.log('✓ Texte extrait via content.parts[0].text');
+          console.log('Longueur:', recipeText.length);
+          console.log('Début:', recipeText.substring(0, 200));
+        }
+      }
+      // Cas 2: Structure alternative directe sur candidate
+      else if (candidate.text) {
+        recipeText = candidate.text;
+        console.log('✓ Texte extrait via candidate.text');
+      }
+      // Cas 3: Output direct
+      else if (candidate.output) {
+        recipeText = candidate.output;
+        console.log('✓ Texte extrait via candidate.output');
+      }
+    }
+    // Cas 4: Réponse directe au premier niveau
+    else if (response.text) {
       recipeText = response.text;
+      console.log('✓ Texte extrait via response.text');
     }
 
-    // Fail-safe : si réponse vide ou bloquée
-    if (!recipeText) {
-      console.warn('Aucune recette générée, utilisation de la recette de secours.');
-      recipeText = `
-NOM: Recette Mystère
-DESCRIPTION: Une recette générée automatiquement par ChefIA.
-CUISINE: Fusion
-TEMPS: 30 minutes
-PORTIONS: 4 personnes
-DIFFICULTÉ: Intermédiaire
-INGRÉDIENTS:
-• 2 ingrédients génériques
-ÉTAPES:
-1. Mélanger les ingrédients.
-2. Cuire à feu moyen.
-NUTRITION:
-Calories: 350 kcal
-Protéines: 25g
-Glucides: 30g
-Lipides: 15g
-CONSEIL: Prenez votre temps et amusez-vous en cuisinant !
-`;
+    if (recipeText && recipeText.trim().length > 0) {
+      console.log('=== RECETTE EXTRAITE ===');
+      console.log('Longueur totale:', recipeText.length);
+      console.log('Premiers 300 caractères:', recipeText.substring(0, 300));
+      console.log('Derniers 100 caractères:', recipeText.substring(recipeText.length - 100));
+      
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          recipe: recipeText,
+          debug: {
+            hasText: true,
+            textLength: recipeText.length,
+            preview: recipeText.substring(0, 150),
+            structure: 'Gemini API standard'
+          }
+        })
+      };
+    } else {
+      // Retourner la structure complète pour debugging
+      console.error('❌ AUCUN TEXTE TROUVÉ - Structure complète:');
+      console.error(JSON.stringify(response, null, 2));
+      
+      throw new Error(`Structure de réponse inattendue. Aucun texte trouvé dans: ${JSON.stringify(response).substring(0, 1000)}`);
     }
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ recipe: recipeText })
-    };
 
   } catch (error) {
-    console.error('Erreur:', error);
-    // Recette de secours en cas d'erreur
-    const fallbackRecipe = {
-      recipe: `
-NOM: Recette Mystère
-DESCRIPTION: Une recette générée automatiquement par ChefIA.
-CUISINE: Fusion
-TEMPS: 30 minutes
-PORTIONS: 4 personnes
-DIFFICULTÉ: Intermédiaire
-INGRÉDIENTS:
-• 2 ingrédients génériques
-ÉTAPES:
-1. Mélanger les ingrédients.
-2. Cuire à feu moyen.
-NUTRITION:
-Calories: 350 kcal
-Protéines: 25g
-Glucides: 30g
-Lipides: 15g
-CONSEIL: Prenez votre temps et amusez-vous en cuisinant !
-`
-    };
-
+    console.error('=== ERREUR COMPLÈTE ===');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    
     return {
-      statusCode: 200,
+      statusCode: 500,
       headers,
-      body: JSON.stringify(fallbackRecipe)
+      body: JSON.stringify({
+        success: false,
+        error: 'Erreur lors de la génération de la recette',
+        details: error.message,
+        help: 'Vérifiez les logs Netlify pour plus de détails'
+      })
     };
   }
 };
