@@ -8,49 +8,79 @@ exports.handler = async (event, context) => {
     'Content-Type': 'application/json'
   };
 
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: '' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
 
   try {
-    const { prompt } = JSON.parse(event.body);
+    const data = JSON.parse(event.body);
+    const { prompt } = data;
     const apiKey = process.env.GEMINI_API_KEY;
-
+    
     if (!apiKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "Clé API absente dans Netlify" }) };
+      throw new Error('API Key Google Gemini non configurée');
     }
 
     const requestBody = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      }
     });
 
-    // On utilise gemini-1.5-flash-latest qui est le lien le plus robuste
-    const options = {
-      hostname: 'generativelanguage.googleapis.com',
-      path: `/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    };
+    const response = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'generativelanguage.googleapis.com',
+        // CORRECTION : Utilisation du modèle gemini-1.5-flash (stable)
+        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(requestBody)
+        }
+      };
 
-    return new Promise((resolve) => {
       const req = https.request(options, (res) => {
-        let str = '';
-        res.on('data', (chunk) => str += chunk);
+        let responseData = '';
+        res.on('data', (chunk) => { responseData += chunk; });
         res.on('end', () => {
-          resolve({
-            statusCode: res.statusCode,
-            headers,
-            body: str
-          });
+          try {
+            const parsed = JSON.parse(responseData);
+            if (res.statusCode !== 200) {
+              reject(new Error(parsed.error?.message || `Erreur API ${res.statusCode}`));
+              return;
+            }
+            resolve(parsed);
+          } catch (e) { reject(new Error('Erreur de parsing JSON')); }
         });
       });
 
-      req.on('error', (e) => {
-        resolve({ statusCode: 500, headers, body: JSON.stringify({ error: e.message }) });
-      });
-
+      req.on('error', (error) => { reject(error); });
       req.write(requestBody);
       req.end();
     });
-  } catch (err) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+
+    // Extraction du texte de la recette
+    if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({ recipe: response.candidates[0].content.parts[0].text })
+      };
+    } else {
+      throw new Error('Structure de réponse vide ou invalide');
+    }
+
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Erreur génération', details: error.message })
+    };
   }
 };
