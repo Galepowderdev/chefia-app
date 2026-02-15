@@ -126,64 +126,72 @@ function buildPrompt() {
     const cuisine = document.getElementById('cuisineType').value;
     const timeLimit = document.getElementById('timeLimit').value;
     const difficulty = document.getElementById('difficulty').value;
-
-    const historyText = state.dishHistory.length > 0
+    
+    const historyText = state.dishHistory.length > 0 
         ? `\n\nRECETTES DÉJÀ SUGGÉRÉES (NE JAMAIS RÉPÉTER): ${state.dishHistory.map(h => h.name).join(', ')}`
         : '';
 
     const selectedIngs = Array.from(state.selectedIngredients);
     const excludedIngs = Array.from(state.excludedIngredients);
 
-    return `
-Tu es un chef IA expert. Crée une RECETTE COMPLÈTE et détaillée, même si certains ingrédients sont manquants. Assure-toi que la recette est toujours générée.
+    return `Tu es un chef étoilé innovant et créatif. Crée UNE recette complète et détaillée selon ces critères:
 
-UTILISE STRICTEMENT CES BALISES POUR CHAQUE SECTION (aucun texte en dehors):
-<NOM> ... </NOM>
-<DESCRIPTION> ... </DESCRIPTION>
-<CUISINE> ... </CUISINE>
-<TEMPS> ... </TEMPS>
-<PORTIONS> ... </PORTIONS>
-<DIFFICULTÉ> ... </DIFFICULTÉ>
-<INGRÉDIENTS>
-• ...
-• ...
-</INGRÉDIENTS>
-<ÉTAPES>
-1. ...
-2. ...
-</ÉTAPES>
-<NUTRITION>
-Calories: ...
-Protéines: ...
-Glucides: ...
-Lipides: ...
-</NUTRITION>
-<CONSEIL> ... </CONSEIL>
+INGRÉDIENTS DISPONIBLES: ${selectedIngs.length > 0 ? selectedIngs.join(', ') : 'aucun spécifié - sois créatif'}
+INGRÉDIENTS À ÉVITER ABSOLUMENT: ${excludedIngs.length > 0 ? excludedIngs.join(', ') : 'aucun'}
+${cuisine ? `TYPE DE CUISINE: ${cuisine}` : 'TYPE DE CUISINE: Varie entre différentes cuisines du monde'}
+${timeLimit ? `TEMPS MAXIMUM: ${timeLimit} minutes` : ''}
+${difficulty ? `NIVEAU: ${difficulty}` : ''}${historyText}
 
-CRITÈRES:
-- Ingrédients disponibles: ${selectedIngs.length > 0 ? selectedIngs.join(', ') : 'aucun spécifié'}
-- Ingrédients à éviter: ${excludedIngs.length > 0 ? excludedIngs.join(', ') : 'aucun'}
-- Type de cuisine: ${cuisine || 'Varie'}
-- Temps maximum: ${timeLimit || 'Peu importe'}
-- Difficulté: ${difficulty || 'Tous niveaux'}
-${historyText}
+RÈGLES IMPORTANTES:
+- Crée une recette TOTALEMENT DIFFÉRENTE des recettes déjà suggérées
+- Utilise intelligemment les ingrédients disponibles
+- N'utilise JAMAIS les ingrédients à éviter
+- Sois créatif et original
 
-Fais en sorte que:
-1. La recette soit toujours complète et réaliste.
-2. Les sections <NUTRITION> contiennent toujours Calories, Protéines et Glucides.
-3. Ne répète jamais une recette déjà générée.
-4. Utilise les ingrédients disponibles et n'utilise jamais ceux à éviter.
+FORMATE TA RÉPONSE EXACTEMENT COMME CET EXEMPLE (respecte ce format STRICTEMENT):
 
-Commence ta réponse directement par <NOM> sans texte avant.
-`;
+NOM: Poulet Croustillant aux Herbes Provençales
+DESCRIPTION: Un poulet juteux mariné dans des herbes fraîches, rôti à la perfection avec une peau dorée et croustillante. Servi avec des légumes de saison grillés et une sauce au citron.
+CUISINE: Française
+TEMPS: 45 minutes
+PORTIONS: 4 personnes
+DIFFICULTÉ: Intermédiaire
+
+INGRÉDIENTS:
+• 4 cuisses de poulet (environ 800g)
+• 3 cuillères à soupe d'huile d'olive
+• 2 gousses d'ail hachées
+• 1 cuillère à soupe de thym frais
+• 1 cuillère à soupe de romarin frais
+• Le jus d'un citron
+• Sel et poivre au goût
+• 500g de légumes de saison
+
+ÉTAPES:
+1. Préchauffez le four à 200°C. Mélangez l'huile d'olive, l'ail, les herbes, le jus de citron, le sel et le poivre dans un bol.
+2. Massez les cuisses de poulet avec la marinade et laissez reposer 15 minutes à température ambiante.
+3. Placez le poulet sur une plaque de cuisson et enfournez pendant 35-40 minutes jusqu'à ce que la peau soit dorée et croustillante.
+4. Pendant ce temps, coupez les légumes en morceaux et faites-les griller à la poêle avec un peu d'huile.
+5. Laissez reposer le poulet 5 minutes avant de servir avec les légumes grillés et un filet de citron.
+
+NUTRITION (par portion):
+Calories: 420 kcal
+Protéines: 35g
+Glucides: 12g
+Lipides: 28g
+
+CONSEIL: Pour une peau encore plus croustillante, séchez bien le poulet avec du papier absorbant avant de le mariner et augmentez la température du four à 220°C les 5 dernières minutes.
+
+MAINTENANT GÉNÈRE TA PROPRE RECETTE EN SUIVANT EXACTEMENT CE FORMAT. COMMENCE PAR "NOM:" SANS AUCUN TEXTE AVANT.`;
 }
-
 
 // Génération de la recette
 async function generateRecipe() {
     showLoading();
     
     try {
+        console.log('🚀 Début de la génération de recette...');
+        
         // Appel à la fonction serverless Netlify
         const response = await fetch('/.netlify/functions/generate-recipe', {
             method: 'POST',
@@ -193,28 +201,62 @@ async function generateRecipe() {
             body: JSON.stringify({ prompt: buildPrompt() })
         });
 
+        console.log('📡 Réponse HTTP status:', response.status);
+
         if (!response.ok) {
-            throw new Error('Erreur lors de la génération de la recette');
+            const errorData = await response.json();
+            console.error('❌ Erreur HTTP:', errorData);
+            throw new Error(errorData.details || 'Erreur lors de la génération de la recette');
         }
 
         const data = await response.json();
         
-        console.log('Réponse complète de l\'API:', data);
+        console.log('📦 Données reçues:', data);
+        console.log('📦 Type de data.recipe:', typeof data.recipe);
+        console.log('📦 Longueur de data.recipe:', data.recipe ? data.recipe.length : 0);
         
-        displayRecipe(parseRecipe(data.recipe));
+        if (data.debug) {
+            console.log('🔍 Debug info:', data.debug);
+        }
+        
+        if (!data.recipe || data.recipe.trim().length === 0) {
+            console.error('❌ Aucune recette dans la réponse:', data);
+            throw new Error('La réponse ne contient pas de recette valide');
+        }
+        
+        console.log('✅ Recette reçue, début du parsing...');
+        console.log('📝 Premiers 500 caractères:', data.recipe.substring(0, 500));
+        
+        const parsedRecipe = parseRecipe(data.recipe);
+        console.log('✅ Recette parsée:', parsedRecipe);
+        
+        displayRecipe(parsedRecipe);
         updateStats();
+        
+        console.log('✅ Génération terminée avec succès!');
     } catch (error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors de la génération de la recette. Veuillez réessayer.');
+        console.error('💥 ERREUR COMPLÈTE:', error);
+        console.error('💥 Stack:', error.stack);
+        alert(`Erreur: ${error.message}\n\nConsultez la console (F12) pour plus de détails.`);
         showWelcome();
     }
 }
 
-// Parse la recette
+// Parse la recette avec meilleure gestion
 function parseRecipe(text) {
-    console.log('Texte brut reçu:', text.substring(0, 500));
+    console.log('🔍 DÉBUT DU PARSING');
+    console.log('📝 Texte brut (longueur: ' + text.length + ')');
+    console.log('📝 Premiers 800 caractères:', text.substring(0, 800));
+    
+    // Nettoyer le texte
+    text = text.trim();
+    
+    // Supprimer les balises markdown si présentes
+    text = text.replace(/```[a-z]*\n/g, '').replace(/```/g, '');
     
     const lines = text.split('\n').filter(l => l.trim());
+    console.log('📋 Nombre de lignes:', lines.length);
+    
     const recipe = {
         name: '',
         description: '',
@@ -229,59 +271,137 @@ function parseRecipe(text) {
     };
 
     let section = '';
+    let descriptionLines = [];
     
-    lines.forEach(line => {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const trimmed = line.trim();
         
-        if (trimmed.startsWith('NOM:') || trimmed.startsWith('**NOM:**')) {
-            recipe.name = trimmed.replace(/\*?\*?NOM:\*?\*?/, '').trim();
-        } else if (trimmed.startsWith('DESCRIPTION:') || trimmed.startsWith('**DESCRIPTION:**')) {
-            recipe.description = trimmed.replace(/\*?\*?DESCRIPTION:\*?\*?/, '').trim();
-        } else if (trimmed.startsWith('CUISINE:') || trimmed.startsWith('**CUISINE:**')) {
-            recipe.cuisine = trimmed.replace(/\*?\*?CUISINE:\*?\*?/, '').trim();
-        } else if (trimmed.startsWith('TEMPS:') || trimmed.startsWith('**TEMPS:**')) {
-            recipe.time = trimmed.replace(/\*?\*?TEMPS:\*?\*?/, '').trim();
-        } else if (trimmed.startsWith('PORTIONS:') || trimmed.startsWith('**PORTIONS:**')) {
-            recipe.servings = trimmed.replace(/\*?\*?PORTIONS:\*?\*?/, '').trim();
-        } else if (trimmed.startsWith('DIFFICULTÉ:') || trimmed.startsWith('NIVEAU:') || trimmed.startsWith('**DIFFICULTÉ:**') || trimmed.startsWith('**NIVEAU:**')) {
-            recipe.difficulty = trimmed.replace(/\*?\*?(DIFFICULTÉ|NIVEAU):\*?\*?/, '').trim();
-        } else if (trimmed === 'INGRÉDIENTS:' || trimmed === '**INGRÉDIENTS:**' || trimmed.includes('INGRÉDIENTS')) {
+        // Ignorer les lignes vides
+        if (!trimmed) continue;
+        
+        console.log(`Ligne ${i}: [${section}] "${trimmed.substring(0, 80)}"`);
+        
+        // Détecter les sections principales
+        if (trimmed.match(/^NOM\s*:/i) || trimmed.match(/^\*\*NOM\*\*\s*:/i)) {
+            recipe.name = trimmed.replace(/\*?\*?NOM\*?\*?\s*:\s*/i, '').trim();
+            console.log('  ✓ NOM trouvé:', recipe.name);
+        } 
+        else if (trimmed.match(/^DESCRIPTION\s*:/i) || trimmed.match(/^\*\*DESCRIPTION\*\*\s*:/i)) {
+            recipe.description = trimmed.replace(/\*?\*?DESCRIPTION\*?\*?\s*:\s*/i, '').trim();
+            section = 'description';
+            console.log('  ✓ DESCRIPTION trouvée');
+        }
+        else if (trimmed.match(/^CUISINE\s*:/i) || trimmed.match(/^\*\*CUISINE\*\*\s*:/i)) {
+            recipe.cuisine = trimmed.replace(/\*?\*?CUISINE\*?\*?\s*:\s*/i, '').trim();
+            section = '';
+            console.log('  ✓ CUISINE trouvée:', recipe.cuisine);
+        }
+        else if (trimmed.match(/^TEMPS\s*:/i) || trimmed.match(/^\*\*TEMPS\*\*\s*:/i)) {
+            recipe.time = trimmed.replace(/\*?\*?TEMPS\*?\*?\s*:\s*/i, '').trim();
+            section = '';
+            console.log('  ✓ TEMPS trouvé:', recipe.time);
+        }
+        else if (trimmed.match(/^PORTIONS?\s*:/i) || trimmed.match(/^\*\*PORTIONS?\*\*\s*:/i)) {
+            recipe.servings = trimmed.replace(/\*?\*?PORTIONS?\*?\*?\s*:\s*/i, '').trim();
+            section = '';
+            console.log('  ✓ PORTIONS trouvées:', recipe.servings);
+        }
+        else if (trimmed.match(/^(DIFFICULTÉ|NIVEAU)\s*:/i) || trimmed.match(/^\*\*(DIFFICULTÉ|NIVEAU)\*\*\s*:/i)) {
+            recipe.difficulty = trimmed.replace(/\*?\*?(DIFFICULTÉ|NIVEAU)\*?\*?\s*:\s*/i, '').trim();
+            section = '';
+            console.log('  ✓ DIFFICULTÉ trouvée:', recipe.difficulty);
+        }
+        else if (trimmed.match(/^INGRÉDIENTS?\s*:?$/i) || trimmed.match(/^\*\*INGRÉDIENTS?\*\*\s*:?$/i)) {
             section = 'ingredients';
-        } else if (trimmed === 'ÉTAPES:' || trimmed === '**ÉTAPES:**' || trimmed === 'PRÉPARATION:' || trimmed.includes('ÉTAPES')) {
+            console.log('  ✓ Section INGRÉDIENTS');
+        }
+        else if (trimmed.match(/^(ÉTAPES?|PRÉPARATION|INSTRUCTIONS?)\s*:?$/i) || trimmed.match(/^\*\*(ÉTAPES?|PRÉPARATION|INSTRUCTIONS?)\*\*\s*:?$/i)) {
             section = 'steps';
-        } else if (trimmed.startsWith('NUTRITION') || trimmed.includes('nutritionnelle')) {
+            console.log('  ✓ Section ÉTAPES');
+        }
+        else if (trimmed.match(/^NUTRITION/i) || trimmed.match(/^Informations? nutritionnelle?s?/i)) {
             section = 'nutrition';
-        } else if (trimmed.startsWith('CONSEIL:') || trimmed.startsWith('**CONSEIL:**')) {
-            recipe.tip = trimmed.replace(/\*?\*?CONSEIL:\*?\*?/, '').trim();
+            console.log('  ✓ Section NUTRITION');
+        }
+        else if (trimmed.match(/^CONSEIL\s*:/i) || trimmed.match(/^\*\*CONSEIL\*\*\s*:/i)) {
+            recipe.tip = trimmed.replace(/\*?\*?CONSEIL\*?\*?\s*:\s*/i, '').trim();
             section = 'tip';
-        } else if (section === 'ingredients' && (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d+/.test(trimmed))) {
-            recipe.ingredients.push(trimmed.replace(/^[•\-*]\s*/, '').trim());
-        } else if (section === 'steps' && /^\d+[\.):]/.test(trimmed)) {
-            recipe.steps.push(trimmed.replace(/^\d+[\.):]\s*/, '').trim());
-        } else if (section === 'nutrition') {
+            console.log('  ✓ CONSEIL trouvé');
+        }
+        // Parser le contenu selon la section
+        else if (section === 'description' && trimmed.length > 10 && !trimmed.match(/^[A-Z]+\s*:/)) {
+            descriptionLines.push(trimmed);
+        }
+        else if (section === 'ingredients') {
+            // Détecter les ingrédients (commencent par •, -, *, ou un nombre)
+            if (trimmed.match(/^[•\-*\d]/)) {
+                const ingredient = trimmed.replace(/^[•\-*]\s*/, '').replace(/^\d+[\.)]\s*/, '').trim();
+                if (ingredient) {
+                    recipe.ingredients.push(ingredient);
+                    console.log('    + Ingrédient:', ingredient.substring(0, 50));
+                }
+            }
+        }
+        else if (section === 'steps') {
+            // Détecter les étapes (commencent par un nombre)
+            if (trimmed.match(/^\d+[\.):]/)) {
+                const step = trimmed.replace(/^\d+[\.):]\s*/, '').trim();
+                if (step) {
+                    recipe.steps.push(step);
+                    console.log('    + Étape:', step.substring(0, 50));
+                }
+            }
+        }
+        else if (section === 'nutrition') {
             if (trimmed.includes(':')) {
                 const [key, value] = trimmed.split(':').map(s => s.trim());
                 if (key && value) {
-                    recipe.nutrition[key.replace(/\*/g, '')] = value;
+                    const cleanKey = key.replace(/[•\-*]/g, '').trim();
+                    recipe.nutrition[cleanKey] = value;
+                    console.log('    + Nutrition:', cleanKey, '=', value);
                 }
             }
-        } else if (section === 'tip' && trimmed && !trimmed.includes('CONSEIL')) {
-            recipe.tip += ' ' + trimmed;
-        } else if (section === '' && recipe.description && trimmed.length > 20 && !trimmed.includes(':')) {
-            // Ajouter à la description si on est au début et que c'est du texte long
-            recipe.description += ' ' + trimmed;
         }
-    });
+        else if (section === 'tip' && trimmed && !trimmed.match(/^[A-Z]+\s*:/)) {
+            recipe.tip += ' ' + trimmed;
+        }
+    }
+    
+    // Ajouter les lignes de description supplémentaires
+    if (descriptionLines.length > 0) {
+        recipe.description += ' ' + descriptionLines.join(' ');
+    }
+
+    // Nettoyer et valider
+    recipe.name = recipe.name.trim();
+    recipe.description = recipe.description.trim();
+    recipe.tip = recipe.tip.trim();
 
     // Valeurs par défaut si certains champs sont vides
-    if (!recipe.name) recipe.name = 'Recette Mystère';
-    if (!recipe.description) recipe.description = 'Une délicieuse recette créée par notre chef IA';
+    if (!recipe.name) {
+        recipe.name = 'Recette Délicieuse';
+        console.warn('⚠️ Nom par défaut utilisé');
+    }
+    if (!recipe.description) {
+        recipe.description = 'Une délicieuse recette créée spécialement pour vous';
+        console.warn('⚠️ Description par défaut utilisée');
+    }
     if (!recipe.cuisine) recipe.cuisine = 'Fusion';
     if (!recipe.time) recipe.time = '30 minutes';
     if (!recipe.servings) recipe.servings = '4 personnes';
     if (!recipe.difficulty) recipe.difficulty = 'Intermédiaire';
-    if (recipe.ingredients.length === 0) recipe.ingredients.push('Consultez la recette complète ci-dessous');
-    if (recipe.steps.length === 0) recipe.steps.push('Suivez les instructions de préparation');
+    
+    if (recipe.ingredients.length === 0) {
+        recipe.ingredients.push('Voir les détails dans la recette complète');
+        console.warn('⚠️ Aucun ingrédient trouvé');
+    }
+    
+    if (recipe.steps.length === 0) {
+        recipe.steps.push('Suivez les instructions de préparation détaillées');
+        console.warn('⚠️ Aucune étape trouvée');
+    }
+    
     if (Object.keys(recipe.nutrition).length === 0) {
         recipe.nutrition = {
             'Calories': '350 kcal',
@@ -289,22 +409,36 @@ function parseRecipe(text) {
             'Glucides': '30g',
             'Lipides': '15g'
         };
+        console.warn('⚠️ Nutrition par défaut utilisée');
     }
-    if (!recipe.tip) recipe.tip = 'Prenez votre temps et amusez-vous en cuisinant !';
+    
+    if (!recipe.tip) {
+        recipe.tip = 'Prenez votre temps et amusez-vous en cuisinant !';
+        console.warn('⚠️ Conseil par défaut utilisé');
+    }
 
-    console.log('Recette parsée:', JSON.stringify(recipe, null, 2));
+    console.log('✅ PARSING TERMINÉ');
+    console.log('📊 Résumé:', {
+        name: recipe.name,
+        ingredients: recipe.ingredients.length,
+        steps: recipe.steps.length,
+        nutritionKeys: Object.keys(recipe.nutrition).length
+    });
+
     return recipe;
 }
 
 // Affichage de la recette
 function displayRecipe(recipe) {
+    console.log('🎨 Affichage de la recette:', recipe.name);
+    
     document.getElementById('dishName').textContent = recipe.name;
     document.getElementById('dishDescription').textContent = recipe.description;
-    document.getElementById('cuisineBadge').textContent = recipe.cuisine || 'Fusion';
-    document.getElementById('difficultyBadge').textContent = recipe.difficulty || 'Tous niveaux';
-    document.getElementById('prepTime').textContent = recipe.time || '30 min';
-    document.getElementById('servings').textContent = recipe.servings || '4 personnes';
-    document.getElementById('difficulty2').textContent = recipe.difficulty || 'Intermédiaire';
+    document.getElementById('cuisineBadge').textContent = recipe.cuisine;
+    document.getElementById('difficultyBadge').textContent = recipe.difficulty;
+    document.getElementById('prepTime').textContent = recipe.time;
+    document.getElementById('servings').textContent = recipe.servings;
+    document.getElementById('difficulty2').textContent = recipe.difficulty;
 
     // Ingrédients
     const ingredientsList = document.getElementById('ingredientsList');
@@ -342,6 +476,7 @@ function displayRecipe(recipe) {
     addToHistory(recipe);
     
     showResult();
+    console.log('✅ Affichage terminé');
 }
 
 // Ajouter à l'historique
@@ -429,3 +564,4 @@ elements.clearHistory.addEventListener('click', () => {
 
 // Initialisation
 renderIngredients();
+console.log('✅ Application initialisée');
