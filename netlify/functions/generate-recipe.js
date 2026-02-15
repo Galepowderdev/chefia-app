@@ -14,10 +14,16 @@ exports.handler = async (event, context) => {
     const { prompt } = JSON.parse(event.body);
     const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) throw new Error('Clé API non configurée dans Netlify');
+    if (!apiKey) throw new Error('Clé API non configurée');
 
     const requestBody = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
+      contents: [{ parts: [{ text: prompt }] }],
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+      ]
     });
 
     return new Promise((resolve) => {
@@ -34,24 +40,25 @@ exports.handler = async (event, context) => {
         res.on('end', () => {
           try {
             const data = JSON.parse(str);
-            // On extrait le texte proprement
-            const recipeText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            // On vérifie tous les endroits possibles où le texte peut se trouver
+            const recipeText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             
-            if (!recipeText) {
-              resolve({
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({ error: "L'IA a renvoyé une réponse vide", details: data })
-              });
-            } else {
+            if (recipeText) {
               resolve({
                 statusCode: 200,
                 headers,
                 body: JSON.stringify({ recipe: recipeText })
               });
+            } else {
+              // Si vide, on renvoie l'erreur brute de Google pour comprendre
+              resolve({
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ error: "L'IA n'a pas pu générer de texte", details: data })
+              });
             }
           } catch (e) {
-            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur de lecture de l'IA" }) });
+            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur de réponse API" }) });
           }
         });
       });
