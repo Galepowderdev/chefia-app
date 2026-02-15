@@ -15,19 +15,12 @@ exports.handler = async (event, context) => {
         const apiKey = process.env.GEMINI_API_KEY;
 
         if (!apiKey) {
-            return { 
-                statusCode: 500, 
-                headers, 
-                body: JSON.stringify({ error: "La clé API GEMINI_API_KEY n'est pas configurée dans Netlify." }) 
-            };
+            return { statusCode: 500, headers, body: JSON.stringify({ error: "Clé API GEMINI_API_KEY manquante dans Netlify." }) };
         }
 
         const requestBody = JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2500
-            }
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2500 }
         });
 
         return new Promise((resolve) => {
@@ -42,30 +35,18 @@ exports.handler = async (event, context) => {
                 let str = '';
                 res.on('data', (chunk) => str += chunk);
                 res.on('end', () => {
-                    resolve({
-                        statusCode: res.statusCode,
-                        headers,
-                        body: str
-                    });
+                    resolve({ statusCode: res.statusCode, headers, body: str });
                 });
             });
 
             req.on('error', (e) => {
-                resolve({ 
-                    statusCode: 500, 
-                    headers, 
-                    body: JSON.stringify({ error: "Erreur de connexion à Google API", details: e.message }) 
-                });
+                resolve({ statusCode: 500, headers, body: JSON.stringify({ error: e.message }) });
             });
 
             req.write(requestBody);
             req.end();
         });
     } catch (err) {
-        return { 
-            statusCode: 500, 
-            headers, 
-            body: JSON.stringify({ error: "Erreur interne", details: err.message }) 
-        };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
     }
 };
