@@ -14,20 +14,17 @@ exports.handler = async (event, context) => {
     const { prompt } = JSON.parse(event.body);
     const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) throw new Error('Clé API manquante dans Netlify');
+    if (!apiKey) throw new Error('Variable GEMINI_API_KEY manquante');
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
+      // On garde uniquement le strict nécessaire
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1500
-      }
+      ]
     });
 
     return new Promise((resolve) => {
@@ -44,6 +41,7 @@ exports.handler = async (event, context) => {
         res.on('end', () => {
           try {
             const data = JSON.parse(str);
+            // Vérification de la présence de texte
             const recipeText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             
             if (recipeText) {
@@ -53,15 +51,16 @@ exports.handler = async (event, context) => {
                 body: JSON.stringify({ recipe: recipeText })
               });
             } else {
-              const reason = data.candidates?.[0]?.finishReason || "Inconnue";
+              // On renvoie l'erreur détaillée pour ne plus avoir "Inconnu"
+              const msg = data.promptFeedback?.blockReason || "Refus de génération (Sécurité)";
               resolve({
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({ error: `Blocage Google (${reason})`, details: data })
+                body: JSON.stringify({ error: msg, debug: data })
               });
             }
           } catch (e) {
-            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur lecture API" }) });
+            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur de traitement API" }) });
           }
         });
       });
