@@ -8,79 +8,60 @@ exports.handler = async (event, context) => {
     'Content-Type': 'application/json'
   };
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
-  }
-
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
 
   try {
-    const data = JSON.parse(event.body);
-    const { prompt } = data;
+    const { prompt } = JSON.parse(event.body);
     const apiKey = process.env.GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      throw new Error('API Key Google Gemini non configurée');
-    }
+
+    if (!apiKey) throw new Error('Clé API non configurée dans Netlify');
 
     const requestBody = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
-      }
+      contents: [{ parts: [{ text: prompt }] }]
     });
 
-    const response = await new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        // CORRECTION : Utilisation du modèle gemini-1.5-flash (stable)
         path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(requestBody)
-        }
+        headers: { 'Content-Type': 'application/json' }
       };
 
       const req = https.request(options, (res) => {
-        let responseData = '';
-        res.on('data', (chunk) => { responseData += chunk; });
+        let str = '';
+        res.on('data', (chunk) => str += chunk);
         res.on('end', () => {
           try {
-            const parsed = JSON.parse(responseData);
-            if (res.statusCode !== 200) {
-              reject(new Error(parsed.error?.message || `Erreur API ${res.statusCode}`));
-              return;
+            const data = JSON.parse(str);
+            // On extrait le texte proprement
+            const recipeText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            if (!recipeText) {
+              resolve({
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ error: "L'IA a renvoyé une réponse vide", details: data })
+              });
+            } else {
+              resolve({
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ recipe: recipeText })
+              });
             }
-            resolve(parsed);
-          } catch (e) { reject(new Error('Erreur de parsing JSON')); }
+          } catch (e) {
+            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur de lecture de l'IA" }) });
+          }
         });
       });
 
-      req.on('error', (error) => { reject(error); });
+      req.on('error', (e) => resolve({ statusCode: 500, headers, body: JSON.stringify({ error: e.message }) }));
       req.write(requestBody);
       req.end();
     });
 
-    // Extraction du texte de la recette
-    if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({ recipe: response.candidates[0].content.parts[0].text })
-      };
-    } else {
-      throw new Error('Structure de réponse vide ou invalide');
-    }
-
   } catch (error) {
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: 'Erreur génération', details: error.message })
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
   }
 };
