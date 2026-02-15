@@ -14,14 +14,25 @@ exports.handler = async (event, context) => {
         const { prompt } = JSON.parse(event.body);
         const apiKey = process.env.GEMINI_API_KEY;
 
+        if (!apiKey) {
+            return { 
+                statusCode: 500, 
+                headers, 
+                body: JSON.stringify({ error: "La clé API GEMINI_API_KEY n'est pas configurée dans Netlify." }) 
+            };
+        }
+
         const requestBody = JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2500
+            }
         });
 
         return new Promise((resolve) => {
             const options = {
                 hostname: 'generativelanguage.googleapis.com',
-                // Utilisation de la version stable v1beta
                 path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -31,7 +42,6 @@ exports.handler = async (event, context) => {
                 let str = '';
                 res.on('data', (chunk) => str += chunk);
                 res.on('end', () => {
-                    // On renvoie exactement ce que Google nous donne
                     resolve({
                         statusCode: res.statusCode,
                         headers,
@@ -41,13 +51,21 @@ exports.handler = async (event, context) => {
             });
 
             req.on('error', (e) => {
-                resolve({ statusCode: 500, headers, body: JSON.stringify({ error: e.message }) });
+                resolve({ 
+                    statusCode: 500, 
+                    headers, 
+                    body: JSON.stringify({ error: "Erreur de connexion à Google API", details: e.message }) 
+                });
             });
 
             req.write(requestBody);
             req.end();
         });
     } catch (err) {
-        return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
+        return { 
+            statusCode: 500, 
+            headers, 
+            body: JSON.stringify({ error: "Erreur interne", details: err.message }) 
+        };
     }
 };
