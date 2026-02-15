@@ -14,8 +14,9 @@ exports.handler = async (event, context) => {
     const { prompt } = JSON.parse(event.body);
     const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) throw new Error('Clé API non configurée');
+    if (!apiKey) throw new Error('Clé API non configurée dans Netlify');
 
+    // Configuration pour éviter les blocages de texte vides
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       safetySettings: [
@@ -23,7 +24,11 @@ exports.handler = async (event, context) => {
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-      ]
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2000
+      }
     });
 
     return new Promise((resolve) => {
@@ -40,7 +45,6 @@ exports.handler = async (event, context) => {
         res.on('end', () => {
           try {
             const data = JSON.parse(str);
-            // On vérifie tous les endroits possibles où le texte peut se trouver
             const recipeText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             
             if (recipeText) {
@@ -50,11 +54,11 @@ exports.handler = async (event, context) => {
                 body: JSON.stringify({ recipe: recipeText })
               });
             } else {
-              // Si vide, on renvoie l'erreur brute de Google pour comprendre
+              // Si Google bloque quand même, on renvoie le détail pour comprendre pourquoi
               resolve({
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({ error: "L'IA n'a pas pu générer de texte", details: data })
+                body: JSON.stringify({ error: "L'IA a bloqué la réponse", details: data.promptFeedback || data })
               });
             }
           } catch (e) {
