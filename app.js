@@ -22,7 +22,7 @@ const elements = {
     uniqueCount: document.getElementById('uniqueCount')
 };
 
-// Gestion des ingrédients
+// --- GESTION DES INGRÉDIENTS ---
 document.querySelectorAll('.quick-add').forEach(btn => {
     btn.onclick = () => {
         const txt = btn.textContent.trim().split(' ').pop().toLowerCase();
@@ -60,26 +60,28 @@ window.removeIng = (i, t) => {
     renderIngredients();
 };
 
+// --- GÉNÉRATION ---
 async function generateRecipe() {
     const cuisine = document.getElementById('cuisineType')?.value || 'Libre';
     const time = document.getElementById('timeLimit')?.value || '45';
-    const diff = document.getElementById('difficulty')?.value || 'Facile';
+    const diff = document.getElementById('difficulty')?.value || 'Moyen';
 
-    const prompt = `Génère une recette de cuisine délicieuse.
-    Format de réponse souhaité :
+    const prompt = `Agis en tant que Chef étoilé. Crée une recette précise avec ces infos :
+    - Cuisine : ${cuisine}
+    - Temps : ${time} minutes
+    - Difficulté : ${diff}
+    - Ingrédients à utiliser : ${Array.from(state.selectedIngredients).join(', ') || 'Choix du chef'}
+    - Ingrédients à bannir : ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}
+
+    Format de ta réponse (OBLIGATOIRE) :
     NOM: [Nom de la recette]
-    DESCRIPTION: [Description courte]
+    DESCRIPTION: [Description alléchante]
     INGRÉDIENTS:
-    - [Ingrédient 1]
-    - [Ingrédient 2]
+    - [Liste d'ingrédients]
     ÉTAPES:
-    1. [Étape 1]
-    2. [Étape 2]
-    CONSEIL: [Astuce du chef]
-    
-    Contraintes : Cuisine ${cuisine}, max ${time} min, difficulté ${diff}.
-    Ingrédients à utiliser : ${Array.from(state.selectedIngredients).join(', ') || 'Libre'}.
-    Ingrédients à éviter : ${Array.from(state.excludedIngredients).join(', ') || 'Aucun'}.`;
+    1. [L'étape 1]
+    2. [L'étape 2]
+    CONSEIL: [Une astuce de chef]`;
 
     showLoading();
 
@@ -94,34 +96,28 @@ async function generateRecipe() {
 
         displayRecipe(parseRecipe(data.recipe));
     } catch (err) {
-        alert("Oups ! " + err.message);
+        alert("Erreur : " + err.message);
         showWelcome();
     }
 }
 
 function parseRecipe(text) {
     const clean = text.replace(/\*\*/g, '');
-    const r = { name: 'Recette Maison', description: '', ingredients: [], steps: [], tip: '' };
-    
+    const r = { name: 'Recette ChefIA', description: '', ingredients: [], steps: [], tip: '' };
     const parts = clean.split('\n');
-    let currentSection = '';
+    let section = '';
 
     parts.forEach(line => {
         const l = line.trim();
         if (!l) return;
-
         if (l.toUpperCase().startsWith('NOM:')) r.name = l.split(':')[1].trim();
         else if (l.toUpperCase().startsWith('DESCRIPTION:')) r.description = l.split(':')[1].trim();
-        else if (l.toUpperCase().includes('INGRÉDIENTS')) currentSection = 'ing';
-        else if (l.toUpperCase().includes('ÉTAPES')) currentSection = 'step';
+        else if (l.toUpperCase().includes('INGRÉDIENTS')) section = 'ing';
+        else if (l.toUpperCase().includes('ÉTAPES')) section = 'step';
         else if (l.toUpperCase().startsWith('CONSEIL:')) r.tip = l.split(':')[1].trim();
-        else if (currentSection === 'ing' && (l.startsWith('-') || l.startsWith('*') || l.startsWith('•'))) {
-            r.ingredients.push(l.substring(1).trim());
-        } else if (currentSection === 'step' && /^\d/.test(l)) {
-            r.steps.push(l.replace(/^\d+[\.\)]\s*/, ''));
-        }
+        else if (section === 'ing' && (l.startsWith('-') || l.startsWith('*') || l.startsWith('•'))) r.ingredients.push(l.substring(1).trim());
+        else if (section === 'step' && /^\d/.test(l)) r.steps.push(l.replace(/^\d+[\.\)]\s*/, ''));
     });
-
     return r;
 }
 
@@ -129,32 +125,12 @@ function displayRecipe(r) {
     document.getElementById('dishName').textContent = r.name;
     document.getElementById('dishDescription').textContent = r.description;
     document.getElementById('chefTip').textContent = r.tip || 'Bon appétit !';
+    document.getElementById('ingredientsList').innerHTML = r.ingredients.map(i => `<li class="p-2 border-b last:border-0">✔ ${i}</li>`).join('');
+    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `<div class="p-3 bg-white rounded shadow-sm border mb-2"><span class="font-bold text-blue-600">${i+1}.</span> ${s}</div>`).join('');
     
-    document.getElementById('ingredientsList').innerHTML = r.ingredients.map(i => `
-        <li class="p-2 border-b border-gray-100 last:border-0">✔ ${i}</li>
-    `).join('');
-    
-    document.getElementById('stepsList').innerHTML = r.steps.map((s, i) => `
-        <div class="flex gap-4 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
-            <span class="font-bold text-purple-600">${i+1}.</span>
-            <p class="text-gray-700">${s}</p>
-        </div>
-    `).join('');
-
-    updateHistory(r.name);
-    showResult();
-}
-
-function updateHistory(name) {
     state.recipeCount++;
-    state.dishHistory.unshift({ name, time: new Date().toLocaleTimeString() });
     if (elements.recipeCount) elements.recipeCount.textContent = state.recipeCount;
-    if (elements.historyList) {
-        elements.historySection.classList.remove('hidden');
-        elements.historyList.innerHTML = state.dishHistory.map(h => `
-            <div class="p-2 border-b text-sm"><b>${h.name}</b> <span class="text-gray-400">(${h.time})</span></div>
-        `).join('');
-    }
+    showResult();
 }
 
 function showLoading() { elements.welcome.classList.add('hidden'); elements.result.classList.add('hidden'); elements.loading.classList.remove('hidden'); }
@@ -163,5 +139,4 @@ function showResult() { elements.loading.classList.add('hidden'); elements.welco
 
 elements.generateBtn.onclick = generateRecipe;
 elements.newDishBtn.onclick = generateRecipe;
-
 renderIngredients();
