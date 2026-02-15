@@ -101,6 +101,8 @@ CONSEIL: [Un conseil de chef professionnel pour réussir ce plat]`;
       }
     });
 
+    console.log('Appel API Gemini avec clé:', apiKey ? 'Clé présente (AIza...)' : 'Clé absente!');
+
     const response = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
@@ -120,11 +122,24 @@ CONSEIL: [Un conseil de chef professionnel pour réussir ce plat]`;
         });
 
         res.on('end', () => {
+          console.log('Status Code:', res.statusCode);
+          console.log('Response Headers:', JSON.stringify(res.headers));
+          
           try {
             const parsed = JSON.parse(data);
+            
+            // Vérifier si c'est une erreur HTTP
+            if (res.statusCode !== 200) {
+              console.error('Erreur API (status ' + res.statusCode + '):', data);
+              reject(new Error(`API Gemini error (${res.statusCode}): ${parsed.error?.message || data.substring(0, 200)}`));
+              return;
+            }
+            
             resolve(parsed);
           } catch (e) {
-            reject(new Error('Erreur de parsing de la réponse'));
+            console.error('Erreur parsing:', e);
+            console.error('Raw response:', data.substring(0, 500));
+            reject(new Error('Erreur de parsing de la réponse: ' + e.message));
           }
         });
       });
@@ -137,16 +152,49 @@ CONSEIL: [Un conseil de chef professionnel pour réussir ce plat]`;
       req.end();
     });
 
-    if (response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts && response.candidates[0].content.parts[0]) {
+    // Log pour debugging
+    console.log('Réponse Gemini:', JSON.stringify(response, null, 2));
+
+    // Vérifier s'il y a une erreur dans la réponse
+    if (response.error) {
+      throw new Error(`Erreur API Gemini: ${response.error.message || JSON.stringify(response.error)}`);
+    }
+
+    // Extraire le texte de différentes façons possibles
+    let recipeText = null;
+
+    if (response.candidates && response.candidates[0]) {
+      const candidate = response.candidates[0];
+      
+      // Cas 1: Structure normale
+      if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
+        recipeText = candidate.content.parts[0].text;
+      }
+      // Cas 2: Structure alternative
+      else if (candidate.text) {
+        recipeText = candidate.text;
+      }
+      // Cas 3: Output direct
+      else if (candidate.output) {
+        recipeText = candidate.output;
+      }
+    }
+    // Cas 4: Réponse directe
+    else if (response.text) {
+      recipeText = response.text;
+    }
+
+    if (recipeText) {
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
-          recipe: response.candidates[0].content.parts[0].text
+          recipe: recipeText
         })
       };
     } else {
-      throw new Error('Réponse invalide de l\'API Gemini');
+      // Retourner la structure complète pour debugging
+      throw new Error(`Structure de réponse inattendue. Réponse complète: ${JSON.stringify(response).substring(0, 500)}`);
     }
 
   } catch (error) {
