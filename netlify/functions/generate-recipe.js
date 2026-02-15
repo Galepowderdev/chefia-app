@@ -14,11 +14,10 @@ exports.handler = async (event, context) => {
     const { prompt } = JSON.parse(event.body);
     const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) throw new Error('Clé API non configurée');
+    if (!apiKey) throw new Error('Clé API absente');
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      // DÉSACTIVATION TOTALE DES FILTRES DE SÉCURITÉ
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -26,8 +25,8 @@ exports.handler = async (event, context) => {
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
       ],
       generationConfig: {
-        temperature: 0.8,
-        maxOutputTokens: 2500
+        temperature: 0.7,
+        maxOutputTokens: 2000
       }
     });
 
@@ -54,16 +53,14 @@ exports.handler = async (event, context) => {
                 body: JSON.stringify({ recipe: recipeText })
               });
             } else {
-              // Si c'est encore bloqué, on affiche la raison précise pour le debug
-              const reason = data.candidates?.[0]?.finishReason || "Raison inconnue";
               resolve({
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({ error: `Bloqué par Google (Raison: ${reason})`, details: data })
+                body: JSON.stringify({ error: "L'IA a bloqué le contenu.", details: data })
               });
             }
           } catch (e) {
-            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur de réponse API" }) });
+            resolve({ statusCode: 500, headers, body: JSON.stringify({ error: "Erreur lecture JSON" }) });
           }
         });
       });
