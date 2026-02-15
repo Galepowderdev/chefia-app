@@ -15,21 +15,21 @@ exports.handler = async (event, context) => {
     const { prompt } = data;
     const apiKey = process.env.GEMINI_API_KEY;
     
-    if (!apiKey) throw new Error('API Key manquante dans les variables Netlify');
+    if (!apiKey) throw new Error('API Key manquante');
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 3000, // Augmenté pour éviter les recettes coupées
+        maxOutputTokens: 3000, 
       }
     });
 
     const response = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        // Modèle corrigé en 1.5-flash
-        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        // Utilisation de la version v1 et du modèle flash standard
+        path: `/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       };
@@ -50,6 +50,7 @@ exports.handler = async (event, context) => {
         throw new Error(parsedData.error?.message || 'Erreur API Gemini');
     }
 
+    // Extraction sécurisée du texte
     const recipeText = parsedData.candidates?.[0]?.content?.parts?.[0]?.text;
 
     return {
@@ -58,7 +59,6 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ recipe: recipeText })
     };
   } catch (error) {
-    console.error('Erreur Backend:', error.message);
     return {
       statusCode: 500,
       headers,
