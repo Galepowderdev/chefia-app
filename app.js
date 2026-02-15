@@ -142,44 +142,47 @@ ${cuisine ? `TYPE DE CUISINE: ${cuisine}` : 'TYPE DE CUISINE: Varie entre diffé
 ${timeLimit ? `TEMPS MAXIMUM: ${timeLimit} minutes` : ''}
 ${difficulty ? `NIVEAU: ${difficulty}` : ''}${historyText}
 
-RÈGLES STRICTES:
-- La recette DOIT être complètement DIFFÉRENTE de toutes les recettes déjà suggérées
-- Sois TRÈS créatif et original dans les associations d'ingrédients
-- Utilise au moins 50% des ingrédients disponibles si spécifiés
-- JAMAIS utiliser les ingrédients à éviter
-- Varie les techniques de cuisson et les styles culinaires
-- Propose des plats authentiques et réalisables
+RÈGLES:
+- Recette DIFFÉRENTE des recettes déjà suggérées
+- Créatif avec les ingrédients
+- Utilise les ingrédients disponibles
+- N'utilise JAMAIS les ingrédients à éviter
 
-IMPORTANT: Tu DOIS respecter EXACTEMENT ce format (ne rajoute RIEN avant ou après, pas de texte d'introduction):
+FORMATE TA RÉPONSE EXACTEMENT COMME CET EXEMPLE (remplace juste les valeurs entre crochets):
 
-NOM: [Nom créatif du plat]
-DESCRIPTION: [Description en 2-3 phrases]
-CUISINE: [Type de cuisine]
-TEMPS: [X minutes]
-PORTIONS: [X personnes]
-DIFFICULTÉ: [Débutant/Intermédiaire/Avancé]
+NOM: Poulet Croustillant aux Herbes Provençales
+DESCRIPTION: Un poulet juteux mariné dans des herbes fraîches, rôti à la perfection avec une peau dorée et croustillante. Servi avec des légumes de saison grillés et une sauce au citron.
+CUISINE: Française
+TEMPS: 45 minutes
+PORTIONS: 4 personnes
+DIFFICULTÉ: Intermédiaire
 
 INGRÉDIENTS:
-• [ingrédient 1 avec quantité]
-• [ingrédient 2 avec quantité]
-• [ingrédient 3 avec quantité]
-• [etc... minimum 8 ingrédients]
+• 4 cuisses de poulet (environ 800g)
+• 3 cuillères à soupe d'huile d'olive
+• 2 gousses d'ail hachées
+• 1 cuillère à soupe de thym frais
+• 1 cuillère à soupe de romarin frais
+• Le jus d'un citron
+• Sel et poivre au goût
+• 500g de légumes de saison
 
 ÉTAPES:
-1. [Étape détaillée]
-2. [Étape détaillée]
-3. [Étape détaillée]
-[minimum 5 étapes]
+1. Préchauffez le four à 200°C. Mélangez l'huile d'olive, l'ail, les herbes, le jus de citron, le sel et le poivre dans un bol.
+2. Massez les cuisses de poulet avec la marinade et laissez reposer 15 minutes à température ambiante.
+3. Placez le poulet sur une plaque de cuisson et enfournez pendant 35-40 minutes jusqu'à ce que la peau soit dorée et croustillante.
+4. Pendant ce temps, coupez les légumes en morceaux et faites-les griller à la poêle avec un peu d'huile.
+5. Laissez reposer le poulet 5 minutes avant de servir avec les légumes grillés et un filet de citron.
 
 NUTRITION (par portion):
-Calories: [X] kcal
-Protéines: [X]g
-Glucides: [X]g
-Lipides: [X]g
+Calories: 420 kcal
+Protéines: 35g
+Glucides: 12g
+Lipides: 28g
 
-CONSEIL: [Conseil de chef]
+CONSEIL: Pour une peau encore plus croustillante, séchez bien le poulet avec du papier absorbant avant de le mariner et augmentez la température du four à 220°C les 5 dernières minutes.
 
-COMMENCE DIRECTEMENT PAR "NOM:" SANS AUCUN TEXTE AVANT.`;
+MAINTENANT GÉNÈRE TA PROPRE RECETTE EN SUIVANT EXACTEMENT CE FORMAT. COMMENCE PAR "NOM:" SANS AUCUN TEXTE AVANT.`;
 
     return { prompt };
 }
