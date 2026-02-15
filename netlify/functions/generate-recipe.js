@@ -44,11 +44,18 @@ exports.handler = async (event, context) => {
         }]
       }],
       generationConfig: {
-        temperature: 0.9,
+        temperature: 0.7,
         topK: 40,
         topP: 0.95,
-        maxOutputTokens: 2048,
-      }
+        maxOutputTokens: 4096,
+        stopSequences: []
+      },
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+      ]
     });
 
     console.log('Appel API Gemini avec clé:', apiKey ? 'Clé présente (AIza...)' : 'Clé absente!');
@@ -154,6 +161,12 @@ exports.handler = async (event, context) => {
       console.log('Premiers 300 caractères:', recipeText.substring(0, 300));
       console.log('Derniers 100 caractères:', recipeText.substring(recipeText.length - 100));
       
+      // Vérifier si la réponse semble tronquée
+      if (recipeText.length < 500) {
+        console.warn('⚠️ ATTENTION: Réponse très courte, possiblement tronquée!');
+        console.warn('⚠️ Raison possible dans response:', response.candidates?.[0]?.finishReason);
+      }
+      
       return {
         statusCode: 200,
         headers,
@@ -164,7 +177,9 @@ exports.handler = async (event, context) => {
             hasText: true,
             textLength: recipeText.length,
             preview: recipeText.substring(0, 150),
-            structure: 'Gemini API standard'
+            structure: 'Gemini API standard',
+            finishReason: response.candidates?.[0]?.finishReason,
+            isTruncated: recipeText.length < 500
           }
         })
       };
