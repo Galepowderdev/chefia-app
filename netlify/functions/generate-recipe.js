@@ -19,17 +19,14 @@ exports.handler = async (event, context) => {
 
     const requestBody = JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 3000
-      }
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2500 }
     });
 
+    // On utilise "gemini-pro" qui est le nom le plus stable et compatible v1
     const response = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        // Utilisation de la version v1beta (plus flexible pour Flash)
-        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        path: `/v1/models/gemini-pro:generateContent?key=${apiKey}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       };
@@ -47,8 +44,7 @@ exports.handler = async (event, context) => {
     const parsedData = JSON.parse(response.data);
 
     if (response.statusCode !== 200) {
-      // Si Gemini 1.5 Flash échoue, on tente une alternative automatique ou on affiche l'erreur
-      throw new Error(parsedData.error?.message || 'Erreur API');
+      throw new Error(parsedData.error?.message || 'Erreur API Google');
     }
 
     const recipeText = parsedData.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -59,11 +55,10 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ recipe: recipeText })
     };
   } catch (error) {
-    console.error('Erreur détaillée:', error.message);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Erreur technique', details: error.message })
+      body: JSON.stringify({ error: 'Erreur', details: error.message })
     };
   }
 };
